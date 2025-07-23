@@ -1,7 +1,6 @@
 'use client';
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { useRouter } from 'next/navigation';
 
 interface User {
   id: string;
@@ -51,7 +50,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const router = useRouter();
 
   // Debug function - accessible from console via window.debugUser()
   useEffect(() => {
@@ -204,11 +202,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         localStorage.setItem('user', JSON.stringify(fullUser));
       }
 
-      // Small delay to ensure state is propagated before redirect
-      // This helps avoid the double refresh issue
-      setTimeout(() => {
-        router.push('/');
-      }, 100);
+      // Don't redirect here - let the auth page handle it based on returnUrl
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Login failed';
       setError(errorMessage);
@@ -271,11 +265,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         localStorage.setItem('user', JSON.stringify(fullUser));
       }
 
-      // Small delay to ensure state is propagated before redirect
-      // This helps avoid the double refresh issue
-      setTimeout(() => {
-        router.push('/');
-      }, 100);
+      // Don't redirect here - let the auth page handle it based on returnUrl
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Registration failed';
       setError(errorMessage);
@@ -306,8 +296,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       localStorage.removeItem('user');
     }
     
-    // Redirect to unified auth page
-    router.push('/auth');
+    // Don't redirect here - let components handle navigation
   };
 
   const setUserVerified = (verified: boolean) => {

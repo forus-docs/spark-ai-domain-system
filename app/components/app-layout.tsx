@@ -16,10 +16,11 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const { currentDomain } = useDomain();
   const pathname = usePathname();
   
-  // Don't show sidebar on auth pages
+  // Don't show sidebar on auth pages or invite pages
   const isAuthPage = pathname === '/login' || pathname === '/register' || pathname === '/auth';
+  const isInvitePage = pathname.startsWith('/invite/');
   
-  if (isAuthPage) {
+  if (isAuthPage || isInvitePage) {
     return <>{children}</>;
   }
 

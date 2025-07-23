@@ -13,9 +13,7 @@ import type { Domain, Role } from '@/app/types/domain.types';
 
 interface PageProps {
   params: {
-    domainId: string;
-    roleId: string;
-    inviteCode: string;
+    code: string;
   };
 }
 
@@ -27,58 +25,96 @@ export default function InvitePage({ params }: PageProps) {
   const [role, setRole] = useState<Role | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [inviteValidated, setInviteValidated] = useState(false);
+  
+  console.log('[InvitePage] Render:', {
+    code: params.code,
+    user: user?.email,
+    isLoading,
+    inviteValidated,
+    error,
+    domain: domain?.name,
+    role: role?.name
+  });
 
   useEffect(() => {
-    // Load domain and role data
-    const loadInviteData = async () => {
+    // Validate invite code and load domain/role data
+    const validateInvite = async () => {
       try {
-        // In production, this would validate the invite code with the backend
-        // For now, we'll use mock data
-        const foundDomain = mockDomains.find(d => d.id === params.domainId);
-        if (!foundDomain) {
-          setError('Invalid invite link - domain not found');
+        const response = await fetch(`/api/invites?code=${params.code}`);
+        
+        if (!response.ok) {
+          const data = await response.json();
+          setError(data.error || 'Invalid invite link');
           return;
         }
 
-        const foundRole = foundDomain.roles.find(r => r.id === params.roleId);
+        const data = await response.json();
+        
+        // Load domain and role from mock data (in production, this would come from the API)
+        const foundDomain = mockDomains.find(d => d.id === data.invite.domainId);
+        if (!foundDomain) {
+          setError('Domain not found');
+          return;
+        }
+
+        const foundRole = foundDomain.roles.find(r => r.id === data.invite.roleId);
         if (!foundRole) {
-          setError('Invalid invite link - role not found');
+          setError('Role not found');
           return;
         }
 
         setDomain(foundDomain);
         setRole(foundRole);
+        setInviteValidated(true);
       } catch (err) {
-        setError('Failed to load invite details');
+        console.error('Failed to validate invite:', err);
+        setError('Failed to validate invite');
       } finally {
         setIsLoading(false);
       }
     };
 
-    loadInviteData();
-  }, [params.domainId, params.roleId]);
+    validateInvite();
+  }, [params.code]);
 
   useEffect(() => {
-    // If user is not logged in, redirect to auth with return URL
-    if (!isLoading && !user) {
-      const returnUrl = `/invite/${params.domainId}/${params.roleId}/${params.inviteCode}`;
+    // Only redirect to auth after we've validated the invite
+    if (!isLoading && inviteValidated && !user && !error) {
+      // Use returnUrl to come back here after auth
+      const returnUrl = `/invite/${params.code}`;
       router.push(`/auth?mode=register&returnUrl=${encodeURIComponent(returnUrl)}`);
     }
-  }, [user, isLoading, params, router]);
+  }, [user, isLoading, error, inviteValidated, params.code, router]);
 
-  const handleProceedToPayment = () => {
+  const handleProceedToPayment = async () => {
     if (!domain || !role) return;
 
-    // Set the selected role and domain in context
-    if (domain && role) {
-      // This would typically be handled in the payment flow
-      // For now, we'll simulate joining the domain
+    try {
+      // Mark invite as used
+      const response = await fetch('/api/invites/use', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('accessToken')}` // Get token from storage
+        },
+        body: JSON.stringify({ code: params.code })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to use invite');
+      }
+
+      // Join the domain
       joinDomain(domain, role);
       setCurrentDomain(domain);
       
       // In production, this would go to payment page
       // For demo, we'll go to confirmation
       router.push('/domains?joined=true');
+    } catch (err) {
+      console.error('Failed to process invite:', err);
+      setError('Failed to process invite. Please try again.');
     }
   };
 
@@ -86,8 +122,16 @@ export default function InvitePage({ params }: PageProps) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <Loader2 className="w-8 h-8 animate-spin text-gray-400 mx-auto mb-4" />
-          <p className="text-gray-600">Loading invite details...</p>
+          <div className="mb-8">
+            <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+            </div>
+            <h2 className="text-xl font-semibold text-gray-900 mb-2">Validating your invite</h2>
+            <p className="text-gray-600">Please wait while we verify your invitation...</p>
+          </div>
+          <div className="text-xs text-gray-500">
+            Invite code: {params.code}
+          </div>
         </div>
       </div>
     );
@@ -112,8 +156,20 @@ export default function InvitePage({ params }: PageProps) {
   }
 
   if (!user) {
-    // User is being redirected to registration
-    return null;
+    // Show loading state while redirecting to registration
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="mb-8">
+            <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+            </div>
+            <h2 className="text-xl font-semibold text-gray-900 mb-2">Redirecting to registration</h2>
+            <p className="text-gray-600">Please wait while we redirect you to create an account...</p>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (

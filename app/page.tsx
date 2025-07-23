@@ -26,6 +26,7 @@ function HomePage() {
     // Only redirect if user is authenticated, domains are loaded, and no domain is selected
     // This prevents redirect on refresh when domains are still loading
     if (user && !isDomainLoading && !currentDomain) {
+      console.log('[HomePage] Redirecting to /domains - no currentDomain selected');
       router.push('/domains');
     }
   }, [user, currentDomain, isDomainLoading, router]);
@@ -36,6 +37,7 @@ function HomePage() {
     
     // Safety check - ensure user has id
     if (!user.id) {
+      console.log('[HomePage] No user.id available');
       return;
     }
 
@@ -48,6 +50,7 @@ function HomePage() {
           params.append('domain', currentDomain.id);
         }
 
+        console.log('[HomePage] Fetching posts with params:', params.toString());
         
         const response = await fetch(`/api/posts?${params}`, {
           headers: {
@@ -55,15 +58,18 @@ function HomePage() {
           },
         });
 
+        console.log('[HomePage] Posts response status:', response.status);
         
         if (!response.ok) {
+          console.error('[HomePage] Failed to fetch posts:', response.status);
           return;
         }
         
         const data = await response.json();
+        console.log('[HomePage] Posts data:', data);
         setUserPosts(data.posts || []);
       } catch (error) {
-        // Error fetching posts
+        console.error('[HomePage] Error fetching posts:', error);
       } finally {
         setIsLoading(false);
       }
@@ -83,18 +89,23 @@ function HomePage() {
           domain: currentDomain.id
         });
         
+        console.log('[HomePage] Fetching master posts with params:', params.toString());
+        
         const response = await fetch(`/api/posts/master?${params}`, {
           headers: {
             'Authorization': `Bearer ${accessToken}`,
           },
         });
 
+        console.log('[HomePage] Master posts response status:', response.status);
+
         if (!response.ok) {
-          // Failed to fetch master posts
+          console.error('[HomePage] Failed to fetch master posts:', response.status);
           return;
         }
         
         const data = await response.json();
+        console.log('[HomePage] Master posts data:', data);
         
         // Filter out posts that are already assigned to the user
         const assignedPostIds = userPosts.map(p => p.postId);
@@ -102,9 +113,10 @@ function HomePage() {
           !assignedPostIds.includes(mp.id)
         );
         
+        console.log('[HomePage] Unassigned posts after filtering:', unassignedMasterPosts.length);
         setUnassignedPosts(unassignedMasterPosts);
       } catch (error) {
-        // Error fetching master posts
+        console.error('[HomePage] Error fetching master posts:', error);
       }
     };
 
@@ -225,6 +237,12 @@ function HomePage() {
   
   // Check verification status
   const isVerified = user?.identity?.isVerified || false;
+  console.log('[HomePage] User verification status:', {
+    isVerified,
+    identity: user?.identity,
+    userPostsCount: userPosts.length,
+    unassignedPostsCount: unassignedPosts.length
+  });
   
   // Separate ID verification posts from regular posts
   const verificationUserPosts = userPosts.filter(p => p.masterPost?.postType === 'identity_verification');
@@ -243,6 +261,13 @@ function HomePage() {
   const requiredUnassignedPosts = nonVerificationUnassignedPosts.filter(p => p.category === 'required');
   const recommendedUnassignedPosts = nonVerificationUnassignedPosts.filter(p => p.category === 'recommended');
   const optionalUnassignedPosts = nonVerificationUnassignedPosts.filter(p => p.category === 'optional');
+  
+  console.log('[HomePage] Post breakdown:', {
+    verification: { user: verificationUserPosts.length, unassigned: verificationUnassignedPosts.length },
+    required: { user: requiredUserPosts.length, unassigned: requiredUnassignedPosts.length },
+    recommended: { user: recommendedUserPosts.length, unassigned: recommendedUnassignedPosts.length },
+    optional: { user: optionalUserPosts.length, unassigned: optionalUnassignedPosts.length }
+  });
   
 
   return (

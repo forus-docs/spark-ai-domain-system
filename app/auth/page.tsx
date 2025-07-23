@@ -15,6 +15,9 @@ function AuthFormWrapper() {
   const [mode, setMode] = useState<AuthMode>('login'); // Default state
   const [formError, setFormError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // Capture returnUrl early and store it to prevent loss during re-renders
+  const [returnUrl] = useState(() => searchParams.get('returnUrl'));
 
   // Set initial mode based on URL or first-time user status
   useEffect(() => {
@@ -33,14 +36,28 @@ function AuthFormWrapper() {
   // Redirect if already authenticated
   useEffect(() => {
     if (user) {
-      const returnUrl = searchParams.get('returnUrl');
+      console.log('[Auth Page] User authenticated, checking redirect:', {
+        returnUrl,
+        currentDomainId: user.currentDomainId,
+        domains: user.domains?.length
+      });
+      
       if (returnUrl) {
-        router.push(returnUrl);
-      } else {
+        // Decode the URL in case it was encoded
+        const decodedUrl = decodeURIComponent(returnUrl);
+        console.log('[Auth Page] Redirecting to returnUrl:', decodedUrl);
+        router.push(decodedUrl);
+      } else if (user.currentDomainId && user.domains && user.domains.length > 0) {
+        // Existing user with a domain selected - go to home
+        console.log('[Auth Page] Existing user with currentDomainId, redirecting to home');
         router.push('/');
+      } else {
+        console.log('[Auth Page] New user without domain, redirecting to domains');
+        // Redirect to domains page for new users to select their first domain
+        router.push('/domains');
       }
     }
-  }, [user, router, searchParams]);
+  }, [user, router, returnUrl]);
 
   // Watch for auth errors and display them
   useEffect(() => {
@@ -88,8 +105,11 @@ function AuthFormWrapper() {
     setFormError('');
     clearError(); // Clear any auth context errors
     
-    // Update URL without triggering navigation
-    window.history.replaceState({}, '', `/auth?mode=${newMode}`);
+    // Update URL without triggering navigation, preserving returnUrl
+    const newUrl = returnUrl 
+      ? `/auth?mode=${newMode}&returnUrl=${encodeURIComponent(returnUrl)}`
+      : `/auth?mode=${newMode}`;
+    window.history.replaceState({}, '', newUrl);
   };
 
   const displayError = formError || error;

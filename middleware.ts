@@ -6,11 +6,13 @@ const publicPaths = [
   '/auth',
   '/login',
   '/register',
+  '/invite', // Invite pages
   '/api/auth/login',
   '/api/auth/register',
   '/api/auth/refresh',
   '/api/auth/logout',
-  '/api/domains' // Public domain list
+  '/api/domains', // Public domain list
+  '/api/invites' // Invite validation API
 ];
 
 export function middleware(request: NextRequest) {
@@ -26,6 +28,7 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
+
   // Check if the path is public
   const isPublicPath = publicPaths.some(path => pathname === path || pathname.startsWith(path + '/'));
   
@@ -36,7 +39,7 @@ export function middleware(request: NextRequest) {
   // If accessing a protected route without tokens, redirect to auth
   if (!isPublicPath && !accessToken && !refreshToken) {
     const authUrl = new URL('/auth', request.url);
-    authUrl.searchParams.set('redirect', pathname);
+    authUrl.searchParams.set('returnUrl', pathname);
     return NextResponse.redirect(authUrl);
   }
 

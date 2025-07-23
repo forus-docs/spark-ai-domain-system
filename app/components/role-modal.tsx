@@ -82,7 +82,7 @@ export function RoleModal({ isOpen, onClose, role, domainName }: RoleModalProps)
       <CreateInviteLinkModal
         isOpen={showInviteModal}
         onClose={handleInviteModalClose}
-        roleName={role.name}
+        role={role}
         domainName={domainName}
       />
     </>
