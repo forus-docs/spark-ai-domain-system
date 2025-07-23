@@ -1,0 +1,349 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<spark_specification 
+    xmlns="http://spark-ai.forus.com/schema/v1"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://spark-ai.forus.com/schema/v1 ../../schemas/spark-spec.xsd"
+    version="1.0"
+    type="sprint">
+    
+    <metadata>
+        <name>Sprint 1 - MVP Implementation</name>
+        <description>Phase 1 implementation of the Spark AI Domain System with core navigation, domain browsing, and role selection</description>
+        <version>1.0</version>
+        <created_date>2025-07-07</created_date>
+        <last_updated>2025-07-07</last_updated>
+        <status>in_progress</status>
+        <author>FORUS Digital</author>
+    </metadata>
+    
+    <content>
+        <sprint_content>
+            <overview>
+                <![CDATA[
+                Sprint 1 focuses on delivering a functional MVP of the Spark AI Domain System using React and Next.js. 
+                The implementation includes domain browsing, role selection, and navigation with stubbed content sections.
+                All data is mocked in Phase 1 with no real API calls.
+                ]]>
+            </overview>
+            
+            <acceptance_criteria>
+                <!-- Core Functionality -->
+                <criterion id="AC-001" priority="critical">
+                    <description>User can view all available domains in grid layout</description>
+                    <user_story>As a user, I want to browse all available domains so I can choose which to join</user_story>
+                    <implementation_status>pending</implementation_status>
+                    <test_cases>
+                        <test>Grid displays all 4 mock domains</test>
+                        <test>Each domain card shows icon, name, tagline</test>
+                        <test>Domain cards are responsive (1 col mobile, 2 col desktop)</test>
+                    </test_cases>
+                </criterion>
+                
+                <criterion id="AC-002" priority="critical">
+                    <description>User can click domain to see join modal</description>
+                    <user_story>As a user, I want to view domain details before joining</user_story>
+                    <implementation_status>pending</implementation_status>
+                    <test_cases>
+                        <test>Clicking domain card opens join modal</test>
+                        <test>Modal shows domain name and icon</test>
+                        <test>Modal displays join requirements</test>
+                    </test_cases>
+                </criterion>
+                
+                <criterion id="AC-003" priority="critical">
+                    <description>User can select role when joining multi-role domain</description>
+                    <user_story>As a user, I want to choose my role when joining a domain</user_story>
+                    <implementation_status>pending</implementation_status>
+                    <test_cases>
+                        <test>Role selector shows for domains with multiple roles</test>
+                        <test>Single role domains skip selection</test>
+                        <test>Selected role is highlighted</test>
+                        <test>Role benefits are displayed</test>
+                    </test_cases>
+                </criterion>
+                
+                <criterion id="AC-004" priority="high">
+                    <description>User can complete identity verification step</description>
+                    <user_story>As a user, I must verify my identity before joining</user_story>
+                    <implementation_status>pending</implementation_status>
+                    <test_cases>
+                        <test>Identity verification shows $10 USD fee</test>
+                        <test>Button text changes after verification</test>
+                        <test>State persists during join flow</test>
+                    </test_cases>
+                </criterion>
+                
+                <criterion id="AC-005" priority="critical">
+                    <description>User can join domain and see confirmation</description>
+                    <user_story>As a user, I want to successfully join a domain</user_story>
+                    <implementation_status>pending</implementation_status>
+                    <test_cases>
+                        <test>Join button completes the process</test>
+                        <test>Domain added to joined domains list</test>
+                        <test>Success message displayed</test>
+                        <test>Modal closes after join</test>
+                    </test_cases>
+                </criterion>
+                
+                <criterion id="AC-006" priority="critical">
+                    <description>Joined domains appear in domain selector dropdown</description>
+                    <user_story>As a user, I want to see my joined domains</user_story>
+                    <implementation_status>pending</implementation_status>
+                    <test_cases>
+                        <test>Dropdown shows "Your Domains" section</test>
+                        <test>Each joined domain shows name and role</test>
+                        <test>Current domain is highlighted</test>
+                    </test_cases>
+                </criterion>
+                
+                <criterion id="AC-007" priority="high">
+                    <description>User can switch between joined domains</description>
+                    <user_story>As a user, I want to switch context between domains</user_story>
+                    <implementation_status>pending</implementation_status>
+                    <test_cases>
+                        <test>Clicking domain in dropdown switches context</test>
+                        <test>Navigation items update based on domain</test>
+                        <test>Recent items change per domain</test>
+                    </test_cases>
+                </criterion>
+                
+                <criterion id="AC-008" priority="medium">
+                    <description>Current domain persists in session</description>
+                    <user_story>As a user, I want my domain selection to persist</user_story>
+                    <implementation_status>pending</implementation_status>
+                    <test_cases>
+                        <test>Page refresh maintains current domain</test>
+                        <test>Joined domains persist in session</test>
+                        <test>Selected role persists per domain</test>
+                    </test_cases>
+                </criterion>
+                
+                <!-- Navigation -->
+                <criterion id="AC-009" priority="high">
+                    <description>Sidebar shows/hides via hamburger menu</description>
+                    <user_story>As a user, I want to toggle the sidebar</user_story>
+                    <implementation_status>pending</implementation_status>
+                    <test_cases>
+                        <test>Hamburger button toggles sidebar</test>
+                        <test>Smooth animation on toggle</test>
+                        <test>Content area expands when hidden</test>
+                    </test_cases>
+                </criterion>
+                
+                <criterion id="AC-010" priority="critical">
+                    <description>Navigation items filter based on domain selection</description>
+                    <user_story>As a user, I only want to see relevant navigation</user_story>
+                    <implementation_status>pending</implementation_status>
+                    <test_cases>
+                        <test>"New workstream" always visible</test>
+                        <test>Domain-specific items hidden without domain</test>
+                        <test>All items visible with domain selected</test>
+                    </test_cases>
+                </criterion>
+                
+                <criterion id="AC-011" priority="medium">
+                    <description>Recent items update based on current domain</description>
+                    <user_story>As a user, I want to see domain-specific recent activity</user_story>
+                    <implementation_status>pending</implementation_status>
+                    <test_cases>
+                        <test>Recent items change when switching domains</test>
+                        <test>Generic items show when no domain selected</test>
+                        <test>Clicking recent item navigates correctly</test>
+                    </test_cases>
+                </criterion>
+                
+                <!-- Stubbed Sections -->
+                <criterion id="AC-012" priority="medium">
+                    <description>All content sections show appropriate empty states</description>
+                    <user_story>As a user, I want clear feedback for unbuilt features</user_story>
+                    <implementation_status>pending</implementation_status>
+                    <test_cases>
+                        <test>Workstreams shows "coming soon" with domain context</test>
+                        <test>Organogram shows "coming soon" with domain context</test>
+                        <test>Empty state shows domain icon and name</test>
+                        <test>Message prompts to select domain if none selected</test>
+                    </test_cases>
+                </criterion>
+            </acceptance_criteria>
+            
+            <data_models>
+                <model name="Domain">
+                    <field name="id" type="string" required="true">Unique domain identifier</field>
+                    <field name="icon" type="string" required="true">Emoji representation</field>
+                    <field name="name" type="string" required="true">Display name</field>
+                    <field name="tagline" type="string" required="true">Brief description</field>
+                    <field name="cta" type="string" required="true">Call to action text</field>
+                    <field name="region" type="string" required="true">Geographic scope</field>
+                    <field name="color" type="string" required="true">Primary brand color (hex)</field>
+                    <field name="gradient" type="string" required="true">Tailwind gradient classes</field>
+                    <field name="hasExistingMembers" type="boolean" required="true">Shows membership options</field>
+                    <field name="joinDetails" type="JoinDetails" required="true">Joining requirements</field>
+                    <field name="roles" type="DomainRole[]" required="true" min="1">Available roles</field>
+                </model>
+                
+                <model name="DomainRole">
+                    <field name="id" type="string" required="true">Unique role identifier</field>
+                    <field name="name" type="string" required="true">Display name</field>
+                    <field name="price" type="string" required="true">Joining fee (e.g., "10 USD")</field>
+                    <field name="isDefault" type="boolean" required="false">Default selection flag</field>
+                    <field name="benefits" type="string[]" required="true" min="4" max="8">Role benefits</field>
+                </model>
+                
+                <model name="JoinDetails">
+                    <field name="minInvestment" type="string" required="true">Identity verification cost</field>
+                    <field name="minimumInvestment" type="string" required="false">Domain-specific minimum</field>
+                    <field name="benefit" type="string" required="true">Primary value proposition</field>
+                </model>
+                
+                <model name="UserDomainMembership">
+                    <field name="domainId" type="string" required="true">Domain identifier</field>
+                    <field name="roleId" type="string" required="true">Selected role ID</field>
+                </model>
+                
+                <model name="User">
+                    <field name="id" type="string" required="true">User identifier</field>
+                    <field name="name" type="string" required="true">Display name</field>
+                    <field name="email" type="string" required="true">Email address</field>
+                    <field name="plan" type="string" required="true" enum="free,pro,max">Subscription tier</field>
+                    <field name="avatar" type="string" required="false">Profile image URL</field>
+                </model>
+            </data_models>
+            
+            <components>
+                <component name="DomainSelector">
+                    <description>Dropdown for selecting current domain context</description>
+                    <props>
+                        <prop name="currentDomain" type="string | null" required="true"/>
+                        <prop name="joinedDomains" type="UserDomainMembership[]" required="true"/>
+                        <prop name="onDomainChange" type="(domainId: string | null) => void" required="true"/>
+                    </props>
+                    <behavior>
+                        <action trigger="click">Opens dropdown menu</action>
+                        <action trigger="select">Updates current domain context</action>
+                        <action trigger="clickOutside">Closes dropdown</action>
+                    </behavior>
+                </component>
+                
+                <component name="DomainCard">
+                    <description>Individual domain display card</description>
+                    <props>
+                        <prop name="domain" type="Domain" required="true"/>
+                        <prop name="isJoined" type="boolean" required="true"/>
+                        <prop name="userRole" type="string" required="false"/>
+                        <prop name="onClick" type="() => void" required="true"/>
+                    </props>
+                    <styling>
+                        <style>Minimalist card with subtle gradient on hover</style>
+                        <style>Micro-lift animation on hover</style>
+                        <style>Role badge if joined</style>
+                    </styling>
+                </component>
+                
+                <component name="DomainJoinModal">
+                    <description>Modal for joining a domain</description>
+                    <props>
+                        <prop name="domain" type="Domain" required="true"/>
+                        <prop name="isJoined" type="boolean" required="true"/>
+                        <prop name="userRole" type="string" required="false"/>
+                        <prop name="onJoin" type="(roleId: string) => void" required="true"/>
+                        <prop name="onClose" type="() => void" required="true"/>
+                    </props>
+                    <sections>
+                        <section>Identity verification ($10 USD)</section>
+                        <section>Membership status (if hasExistingMembers)</section>
+                        <section>Role selection (if multiple roles)</section>
+                        <section>Join confirmation button</section>
+                    </sections>
+                </component>
+                
+                <component name="RoleSelector">
+                    <description>Role selection interface</description>
+                    <props>
+                        <prop name="roles" type="DomainRole[]" required="true"/>
+                        <prop name="selectedRole" type="string | null" required="true"/>
+                        <prop name="onRoleSelect" type="(roleId: string) => void" required="true"/>
+                        <prop name="disabled" type="boolean" required="false"/>
+                    </props>
+                    <styling>
+                        <style>Grid layout (1 col mobile, 2 col desktop)</style>
+                        <style>Minimal selection indicator (dot)</style>
+                        <style>Subtle borders and backgrounds</style>
+                    </styling>
+                </component>
+            </components>
+            
+            <user_flows>
+                <flow name="New User Journey">
+                    <step order="1">Land on /domains</step>
+                    <step order="2">Browse domain grid</step>
+                    <step order="3">Click domain card</step>
+                    <step order="4">View join modal</step>
+                    <step order="5">Verify identity</step>
+                    <step order="6">Select role (if multiple)</step>
+                    <step order="7">Confirm join</step>
+                    <step order="8">Access domain features</step>
+                </flow>
+                
+                <flow name="Domain Switching">
+                    <step order="1">Click domain selector</step>
+                    <step order="2">View joined domains</step>
+                    <step order="3">Select different domain</step>
+                    <step order="4">Context updates globally</step>
+                    <step order="5">Navigation adapts</step>
+                </flow>
+            </user_flows>
+            
+            <technical_requirements>
+                <requirement category="framework">
+                    <name>Next.js</name>
+                    <version>14+</version>
+                    <features>App Router, Server Components</features>
+                </requirement>
+                
+                <requirement category="ui">
+                    <name>React</name>
+                    <version>18+</version>
+                </requirement>
+                
+                <requirement category="styling">
+                    <name>Tailwind CSS</name>
+                    <approach>Minimalist design system</approach>
+                </requirement>
+                
+                <requirement category="state">
+                    <name>Context API</name>
+                    <contexts>DomainContext, UserContext</contexts>
+                </requirement>
+                
+                <requirement category="language">
+                    <name>TypeScript</name>
+                    <strict>true</strict>
+                </requirement>
+                
+                <requirement category="persistence">
+                    <name>sessionStorage</name>
+                    <data>currentDomain, userMemberships</data>
+                </requirement>
+            </technical_requirements>
+        </sprint_content>
+    </content>
+    
+    <implementation_tracking>
+        <file path="sprints/sprint1/components/unified-domain-ui.tsx" status="in_progress" coverage="70">Main UI implementation</file>
+        <file path="sprints/sprint1/mock-data/mock-data.ts" status="completed" coverage="100">Mock data implementation</file>
+        <file path="sprints/sprint1/components/component-examples.tsx" status="completed" coverage="100">Component patterns</file>
+    </implementation_tracking>
+    
+    <ai_instructions>
+        <instruction>Use this specification to generate TypeScript interfaces from the data_models section</instruction>
+        <instruction>Create test cases based on acceptance_criteria test_cases</instruction>
+        <instruction>Generate component stubs from the components section with proper props</instruction>
+        <instruction>Validate implementation files against acceptance criteria</instruction>
+        <instruction>Track implementation progress by updating implementation_status</instruction>
+        <instruction>Use minimalist design patterns as specified in styling requirements</instruction>
+        <instruction>Ensure all navigation is domain-aware (domainSpecific flag)</instruction>
+        <instruction>Remember that "Organogram" appears in navigation above "Workstreams"</instruction>
+        <instruction>AI Agents removed from Sprint 1 - comprehensive AIAgent schema in Sprint 2</instruction>
+    </ai_instructions>
+    
+</spark_specification>

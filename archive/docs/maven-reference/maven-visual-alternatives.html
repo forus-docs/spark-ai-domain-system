@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Maven Visual Design Alternatives</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            /* Same color palette as before */
+            --bg-primary: #FFFFFF;
+            --bg-secondary: #F8F9FA;
+            --bg-tertiary: #EEEEEE;
+            --brand-primary: #0844AF;
+            --brand-primary-hover: #027DB8;
+            --brand-primary-light: #81CAC9;
+            --brand-primary-dark: #1E254A;
+            --text-primary: #1E254A;
+            --text-secondary: #858585;
+            --text-disabled: #EEEEEE;
+            --text-white: #FFFFFF;
+            --color-success: #8DBF2E;
+            --color-warning: #F5971B;
+            --color-error: #DD062B;
+            --color-info: #81CAC9;
+            --color-purple: #692482;
+            --shadow-light: 0 2px 8px rgba(30, 37, 74, 0.08);
+            --shadow-medium: 0 4px 16px rgba(30, 37, 74, 0.12);
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            background-color: var(--bg-secondary);
+            color: var(--text-primary);
+            line-height: 1.5;
+            padding: 20px;
+            max-width: 400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+
+        h1 {
+            font-size: 24px;
+            margin-bottom: 8px;
+        }
+
+        .subtitle {
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+
+        .section {
+            margin-bottom: 40px;
+        }
+
+        h2 {
+            font-size: 18px;
+            margin-bottom: 16px;
+            padding: 0 4px;
+        }
+
+        /* Option 1: Icon-based approach */
+        .card-minimal {
+            background: var(--bg-primary);
+            border-radius: 12px;
+            box-shadow: var(--shadow-light);
+            padding: 20px;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: flex-start;
+            gap: 16px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .card-minimal:hover {
+            box-shadow: var(--shadow-medium);
+            transform: translateY(-2px);
+        }
+
+        .card-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .icon-action { background-color: rgba(221, 6, 43, 0.1); }
+        .icon-training { background-color: rgba(8, 68, 175, 0.1); }
+        .icon-opportunity { background-color: rgba(245, 151, 27, 0.1); }
+        .icon-achievement { background-color: rgba(141, 191, 46, 0.1); }
+
+        .card-icon svg {
+            width: 24px;
+            height: 24px;
+        }
+
+        .icon-action svg { color: var(--color-error); }
+        .icon-training svg { color: var(--brand-primary); }
+        .icon-opportunity svg { color: var(--color-warning); }
+        .icon-achievement svg { color: var(--color-success); }
+
+        .card-content {
+            flex: 1;
+        }
+
+        .card-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .card-description {
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+
+        .card-meta {
+            display: flex;
+            gap: 16px;
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        /* Option 2: Pattern-based approach */
+        .card-pattern {
+            background: var(--bg-primary);
+            border-radius: 12px;
+            box-shadow: var(--shadow-light);
+            overflow: hidden;
+            margin-bottom: 16px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .card-pattern:hover {
+            box-shadow: var(--shadow-medium);
+            transform: translateY(-2px);
+        }
+
+        .pattern-header {
+            height: 80px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .pattern-dots {
+            background-image: radial-gradient(circle at 20px 20px, rgba(255,255,255,0.3) 2px, transparent 2px);
+            background-size: 40px 40px;
+            width: 100%;
+            height: 100%;
+            position: absolute;
+        }
+
+        .pattern-header-action {
+            background: linear-gradient(135deg, var(--color-error), rgba(221, 6, 43, 0.8));
+        }
+
+        .pattern-header-training {
+            background: linear-gradient(135deg, var(--brand-primary), var(--brand-primary-hover));
+        }
+
+        .pattern-icon-float {
+            position: absolute;
+            bottom: -20px;
+            right: 20px;
+            width: 60px;
+            height: 60px;
+            background: var(--bg-primary);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: var(--shadow-light);
+        }
+
+        .pattern-content {
+            padding: 12px 20px 20px;
+        }
+
+        /* Option 3: Data visualization approach */
+        .card-data {
+            background: var(--bg-primary);
+            border-radius: 12px;
+            box-shadow: var(--shadow-light);
+            padding: 20px;
+            margin-bottom: 16px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .card-data:hover {
+            box-shadow: var(--shadow-medium);
+            transform: translateY(-2px);
+        }
+
+        .data-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 16px;
+        }
+
+        .data-visual {
+            width: 60px;
+            height: 60px;
+            position: relative;
+        }
+
+        .progress-ring {
+            transform: rotate(-90deg);
+        }
+
+        .progress-bg {
+            fill: none;
+            stroke: var(--bg-tertiary);
+            stroke-width: 6;
+        }
+
+        .progress-fill {
+            fill: none;
+            stroke-width: 6;
+            stroke-linecap: round;
+            transition: stroke-dasharray 0.3s ease;
+        }
+
+        .progress-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        /* Option 4: Abstract shapes */
+        .card-abstract {
+            background: var(--bg-primary);
+            border-radius: 12px;
+            box-shadow: var(--shadow-light);
+            overflow: hidden;
+            margin-bottom: 16px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .card-abstract:hover {
+            box-shadow: var(--shadow-medium);
+            transform: translateY(-2px);
+        }
+
+        .abstract-bg {
+            position: absolute;
+            top: -50px;
+            right: -50px;
+            width: 150px;
+            height: 150px;
+            opacity: 0.1;
+        }
+
+        .abstract-content {
+            padding: 20px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .demo-note {
+            background: var(--brand-primary-light);
+            color: var(--text-primary);
+            padding: 16px;
+            border-radius: 8px;
+            margin-bottom: 24px;
+            font-size: 14px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Visual Design Alternatives</h1>
+        <p class="subtitle">Minimalistic approaches without photography</p>
+    </div>
+
+    <div class="demo-note">
+        💡 Four alternatives to large image blocks that maintain your minimalistic aesthetic
+    </div>
+
+    <!-- Option 1: Icon-based -->
+    <div class="section">
+        <h2>Option 1: Icon + Content Focus</h2>
+        
+        <div class="card-minimal">
+            <div class="card-icon icon-action">
+                <svg viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                </svg>
+            </div>
+            <div class="card-content">
+                <h3 class="card-title">Complete KYC Verification</h3>
+                <p class="card-description">Verify your identity to unlock full Maven benefits</p>
+                <div class="card-meta">
+                    <span>Required</span>
+                    <span>•</span>
+                    <span>5 min</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="card-minimal">
+            <div class="card-icon icon-training">
+                <svg viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M21 5c-1.11-.35-2.33-.5-3.5-.5-1.95 0-4.05.4-5.5 1.5-1.45-1.1-3.55-1.5-5.5-1.5S2.45 4.9 1 6v14.65c0 .25.25.5.5.5.1 0 .15-.05.25-.05C3.1 20.45 5.05 20 6.5 20c1.95 0 4.05.4 5.5 1.5 1.35-.85 3.8-1.5 5.5-1.5 1.65 0 3.35.3 4.75 1.05.1.05.15.05.25.05.25 0 .5-.25.5-.5V6c-.6-.45-1.25-.75-2-1zm0 13.5c-1.1-.35-2.3-.5-3.5-.5-1.7 0-4.15.65-5.5 1.95V8c1.35-1.3 3.8-1.95 5.5-1.95 1.2 0 2.4.15 3.5.5v11.95z"/>
+                </svg>
+            </div>
+            <div class="card-content">
+                <h3 class="card-title">Introduction to MHX Tokens</h3>
+                <p class="card-description">Learn about MahalaX tokens and their utility</p>
+                <div class="card-meta">
+                    <span>50 MHX reward</span>
+                    <span>•</span>
+                    <span>15 min</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Option 2: Pattern-based -->
+    <div class="section">
+        <h2>Option 2: Geometric Patterns</h2>
+        
+        <div class="card-pattern">
+            <div class="pattern-header pattern-header-action">
+                <div class="pattern-dots"></div>
+                <div class="pattern-icon-float">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="var(--color-error)">
+                        <path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/>
+                    </svg>
+                </div>
+            </div>
+            <div class="pattern-content">
+                <h3 class="card-title">Accept Maven Code of Conduct</h3>
+                <p class="card-description">Review community guidelines to maintain status</p>
+                <div class="card-meta">
+                    <span>Due in 2 days</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="card-pattern">
+            <div class="pattern-header pattern-header-training">
+                <div class="pattern-dots"></div>
+                <div class="pattern-icon-float">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="var(--brand-primary)">
+                        <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                    </svg>
+                </div>
+            </div>
+            <div class="pattern-content">
+                <h3 class="card-title">Equipment Maintenance SOP</h3>
+                <p class="card-description">Master the standard procedures for maintenance</p>
+                <div class="card-meta">
+                    <span>Certification</span>
+                    <span>•</span>
+                    <span>30 min</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Option 3: Data visualization -->
+    <div class="section">
+        <h2>Option 3: Progress & Data</h2>
+        
+        <div class="card-data">
+            <div class="data-header">
+                <div>
+                    <h3 class="card-title">Community Feedback GIG</h3>
+                    <p class="card-description">Help improve FORUS features</p>
+                </div>
+                <div class="data-visual">
+                    <svg width="60" height="60" class="progress-ring">
+                        <circle cx="30" cy="30" r="27" class="progress-bg"/>
+                        <circle cx="30" cy="30" r="27" class="progress-fill" 
+                                stroke="var(--color-warning)" 
+                                stroke-dasharray="113 170"/>
+                    </svg>
+                    <div class="progress-text" style="color: var(--color-warning)">3/5</div>
+                </div>
+            </div>
+            <div class="card-meta">
+                <span>500 MHX</span>
+                <span>•</span>
+                <span>3 spots left</span>
+            </div>
+        </div>
+
+        <div class="card-data">
+            <div class="data-header">
+                <div>
+                    <h3 class="card-title">Your Maven Journey</h3>
+                    <p class="card-description">Track your progress to Contributor tier</p>
+                </div>
+                <div class="data-visual">
+                    <svg width="60" height="60" class="progress-ring">
+                        <circle cx="30" cy="30" r="27" class="progress-bg"/>
+                        <circle cx="30" cy="30" r="27" class="progress-fill" 
+                                stroke="var(--color-success)" 
+                                stroke-dasharray="136 170"/>
+                    </svg>
+                    <div class="progress-text" style="color: var(--color-success)">80%</div>
+                </div>
+            </div>
+            <div class="card-meta">
+                <span>8/10 tasks complete</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Option 4: Abstract shapes -->
+    <div class="section">
+        <h2>Option 4: Abstract Shapes</h2>
+        
+        <div class="card-abstract">
+            <svg class="abstract-bg" viewBox="0 0 200 200">
+                <circle cx="100" cy="100" r="80" fill="var(--brand-primary)"/>
+                <circle cx="120" cy="120" r="60" fill="var(--brand-primary-hover)"/>
+            </svg>
+            <div class="abstract-content">
+                <h3 class="card-title">Welcome Achievement Unlocked!</h3>
+                <p class="card-description">You've joined the FORUS Maven community</p>
+                <div class="card-meta">
+                    <span>Earned today</span>
+                    <span>•</span>
+                    <span>View certificate</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="card-abstract">
+            <svg class="abstract-bg" viewBox="0 0 200 200">
+                <rect x="50" y="50" width="100" height="100" rx="20" fill="var(--color-purple)" transform="rotate(45 100 100)"/>
+            </svg>
+            <div class="abstract-content">
+                <h3 class="card-title">Investment Readiness Assessment</h3>
+                <p class="card-description">Evaluate your readiness for opportunities</p>
+                <div class="card-meta">
+                    <span>New</span>
+                    <span>•</span>
+                    <span>10 questions</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Add interactive effects
+        document.querySelectorAll('[class*="card-"]').forEach(card => {
+            card.addEventListener('click', function() {
+                this.style.transform = 'scale(0.98)';
+                setTimeout(() => {
+                    this.style.transform = '';
+                }, 200);
+            });
+        });
+    </script>
+</body>
+</html>

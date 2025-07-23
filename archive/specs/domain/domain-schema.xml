@@ -1,0 +1,332 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<spark_specification 
+    xmlns="http://spark-ai.forus.com/schema/v1"
+    version="1.0"
+    type="data_model">
+    
+    <metadata>
+        <name>Spark AI Domain System - Unified Data Model</name>
+        <description>Core data model definitions for the domain system</description>
+        <version>1.0</version>
+        <created_date>2025-07-07</created_date>
+        <last_updated>2025-07-07</last_updated>
+        <status>approved</status>
+        <author>FORUS Digital</author>
+    </metadata>
+    
+    <content>
+        <data_model_content>
+            <namespace>com.forus.spark.domain</namespace>
+            
+            <types>
+                <!-- Core Domain Type -->
+                <type name="Domain" generate="interface">
+                    <description>Represents an industry-specific ecosystem</description>
+                    <fields>
+                        <field name="id" type="string" required="true">
+                            <constraints>
+                                <pattern>^[a-z0-9-]+$</pattern>
+                                <minLength>3</minLength>
+                                <maxLength>20</maxLength>
+                            </constraints>
+                            <description>Unique domain identifier (lowercase, no spaces)</description>
+                        </field>
+                        
+                        <field name="icon" type="string" required="true">
+                            <constraints>
+                                <pattern>^[\u{1F300}-\u{1F9FF}]$</pattern>
+                            </constraints>
+                            <description>Single emoji character for visual representation</description>
+                        </field>
+                        
+                        <field name="name" type="string" required="true">
+                            <constraints>
+                                <minLength>2</minLength>
+                                <maxLength>50</maxLength>
+                            </constraints>
+                            <description>Display name of the domain</description>
+                        </field>
+                        
+                        <field name="tagline" type="string" required="true">
+                            <constraints>
+                                <minLength>10</minLength>
+                                <maxLength>100</maxLength>
+                            </constraints>
+                            <description>Brief description of the domain purpose</description>
+                        </field>
+                        
+                        <field name="cta" type="string" required="true">
+                            <description>Call to action text for joining</description>
+                        </field>
+                        
+                        <field name="region" type="string" required="true">
+                            <examples>
+                                <example>Global</example>
+                                <example>Pan-African</example>
+                                <example>Eastern Cape, South Africa</example>
+                                <example>Ethiopia</example>
+                            </examples>
+                            <description>Geographic scope of the domain</description>
+                        </field>
+                        
+                        <field name="color" type="string" required="true">
+                            <constraints>
+                                <pattern>^#[0-9A-Fa-f]{6}$</pattern>
+                            </constraints>
+                            <description>Primary brand color in hex format</description>
+                        </field>
+                        
+                        <field name="gradient" type="string" required="true">
+                            <examples>
+                                <example>from-purple-600 to-yellow-500</example>
+                                <example>from-orange-500 to-green-500</example>
+                            </examples>
+                            <description>Tailwind CSS gradient classes</description>
+                        </field>
+                        
+                        <field name="hasExistingMembers" type="boolean" required="true">
+                            <description>Whether to show membership status options</description>
+                        </field>
+                        
+                        <field name="joinDetails" type="JoinDetails" required="true">
+                            <description>Requirements and benefits for joining</description>
+                        </field>
+                        
+                        <field name="roles" type="DomainRole[]" required="true">
+                            <constraints>
+                                <minItems>1</minItems>
+                                <maxItems>10</maxItems>
+                            </constraints>
+                            <description>Available roles within the domain</description>
+                        </field>
+                    </fields>
+                    
+                    <sprint2_extensions>
+                        <field name="agents" type="AIAgent[]" required="false">
+                            <description>
+                                AI Agents will be added in Sprint 2 with comprehensive schema.
+                                See sprints/sprint2/specs/ai-agent-schema.xml for full definition.
+                                Agents are sophisticated domain experts with:
+                                - Multiple execution models (form/sop/knowledge/bpmn/training)
+                                - Web3 payment models (subscription/pay-per-use/token-gated)
+                                - NFT-based access control
+                                - Role-based permissions
+                            </description>
+                        </field>
+                    </sprint2_extensions>
+                    
+                    <phase2_extensions>
+                        <field name="category" type="DomainCategory" required="false"/>
+                        <field name="primaryLanguage" type="string" required="false"/>
+                        <field name="createdBy" type="string" required="false"/>
+                        <field name="createdAt" type="Date" required="false"/>
+                    </phase2_extensions>
+                </type>
+                
+                <!-- Domain Role Type -->
+                <type name="DomainRole" generate="interface">
+                    <description>Represents a role within a domain</description>
+                    <fields>
+                        <field name="id" type="string" required="true">
+                            <constraints>
+                                <pattern>^[a-z_]+$</pattern>
+                                <unique>true</unique>
+                            </constraints>
+                            <description>Unique identifier within domain</description>
+                        </field>
+                        
+                        <field name="name" type="string" required="true">
+                            <constraints>
+                                <minLength>2</minLength>
+                                <maxLength>30</maxLength>
+                            </constraints>
+                            <description>Display name of the role</description>
+                        </field>
+                        
+                        <field name="price" type="string" required="true">
+                            <constraints>
+                                <pattern>^\d+(\.\d{2})?\s[A-Z]{3}$</pattern>
+                            </constraints>
+                            <examples>
+                                <example>10 USD</example>
+                                <example>50.00 EUR</example>
+                            </examples>
+                            <description>Joining fee with currency</description>
+                        </field>
+                        
+                        <field name="isDefault" type="boolean" required="false">
+                            <constraints>
+                                <maxOnePerDomain>true</maxOnePerDomain>
+                            </constraints>
+                            <description>Whether this role is selected by default</description>
+                        </field>
+                        
+                        <field name="benefits" type="string[]" required="true">
+                            <constraints>
+                                <minItems>4</minItems>
+                                <maxItems>8</maxItems>
+                                <itemMinLength>10</itemMinLength>
+                                <itemMaxLength>150</itemMaxLength>
+                            </constraints>
+                            <description>List of role-specific benefits</description>
+                        </field>
+                    </fields>
+                    
+                    <phase2_extensions>
+                        <field name="description" type="string" required="false"/>
+                        <field name="requirements" type="RoleRequirements" required="false"/>
+                        <field name="accessLevel" type="AccessLevel" required="false"/>
+                    </phase2_extensions>
+                </type>
+                
+                <!-- Join Details Type -->
+                <type name="JoinDetails" generate="interface">
+                    <description>Domain joining requirements and benefits</description>
+                    <fields>
+                        <field name="minInvestment" type="string" required="true">
+                            <description>Identity verification fee (e.g., "10 USD")</description>
+                        </field>
+                        
+                        <field name="minimumInvestment" type="string" required="false">
+                            <description>Domain-specific minimum investment</description>
+                        </field>
+                        
+                        <field name="benefit" type="string" required="true">
+                            <description>Primary value proposition</description>
+                        </field>
+                    </fields>
+                </type>
+                
+                <!-- User Domain Membership Type -->
+                <type name="UserDomainMembership" generate="interface">
+                    <description>Represents a user's membership in a domain</description>
+                    <fields>
+                        <field name="domainId" type="string" required="true">
+                            <foreignKey>Domain.id</foreignKey>
+                            <description>Reference to the domain</description>
+                        </field>
+                        
+                        <field name="roleId" type="string" required="true">
+                            <foreignKey>DomainRole.id</foreignKey>
+                            <description>Selected role within the domain</description>
+                        </field>
+                    </fields>
+                    
+                    <phase2_extensions>
+                        <field name="joinedAt" type="Date" required="false"/>
+                        <field name="lastAccessed" type="Date" required="false"/>
+                        <field name="membershipStatus" type="MembershipStatus" required="false"/>
+                    </phase2_extensions>
+                </type>
+                
+                <!-- User Type -->
+                <type name="User" generate="interface">
+                    <description>System user profile</description>
+                    <fields>
+                        <field name="id" type="string" required="true">
+                            <description>Unique user identifier</description>
+                        </field>
+                        
+                        <field name="name" type="string" required="true">
+                            <description>Display name</description>
+                        </field>
+                        
+                        <field name="email" type="string" required="true">
+                            <constraints>
+                                <format>email</format>
+                            </constraints>
+                            <description>Email address</description>
+                        </field>
+                        
+                        <field name="plan" type="SubscriptionPlan" required="true">
+                            <description>Current subscription tier</description>
+                        </field>
+                        
+                        <field name="avatar" type="string" required="false">
+                            <constraints>
+                                <format>url</format>
+                            </constraints>
+                            <description>Profile image URL</description>
+                        </field>
+                    </fields>
+                </type>
+                
+                <!-- Enums -->
+                <enum name="SubscriptionPlan">
+                    <description>Available subscription tiers</description>
+                    <values>
+                        <value name="free" label="Free Plan"/>
+                        <value name="pro" label="Pro Plan"/>
+                        <value name="max" label="Max Plan"/>
+                    </values>
+                </enum>
+                
+                <enum name="MembershipStatus" phase="2">
+                    <description>Domain membership status</description>
+                    <values>
+                        <value name="active" label="Active"/>
+                        <value name="suspended" label="Suspended"/>
+                        <value name="expired" label="Expired"/>
+                    </values>
+                </enum>
+                
+                <enum name="DomainCategory" phase="2">
+                    <description>Domain industry categories</description>
+                    <values>
+                        <value name="finance" label="Finance"/>
+                        <value name="transport" label="Transport"/>
+                        <value name="commerce" label="Commerce"/>
+                        <value name="investment" label="Investment"/>
+                        <value name="education" label="Education"/>
+                        <value name="healthcare" label="Healthcare"/>
+                        <value name="agriculture" label="Agriculture"/>
+                        <value name="technology" label="Technology"/>
+                        <value name="other" label="Other"/>
+                    </values>
+                </enum>
+            </types>
+            
+            <validation_rules>
+                <rule name="UniqueRoleIds">
+                    <description>Role IDs must be unique within a domain</description>
+                    <implementation>Set validation on roles array</implementation>
+                </rule>
+                
+                <rule name="SingleDefaultRole">
+                    <description>Only one role can be marked as default per domain</description>
+                    <implementation>Count roles where isDefault=true, max 1</implementation>
+                </rule>
+                
+                <rule name="MinimumOneRole">
+                    <description>Every domain must have at least one role</description>
+                    <implementation>roles.length >= 1</implementation>
+                </rule>
+            </validation_rules>
+            
+            <mock_data_reference>
+                <file>sprints/sprint1/mock-data/mock-data.ts</file>
+                <domains>
+                    <domain id="maven" name="Maven Hub"/>
+                    <domain id="wow" name="Wealth on Wheels"/>
+                    <domain id="bemnet" name="Bemnet"/>
+                    <domain id="pacci" name="PACCI"/>
+                </domains>
+            </mock_data_reference>
+        </data_model_content>
+    </content>
+    
+    <implementation_tracking>
+        <file path="types/domain.types.ts" status="pending" coverage="0">TypeScript type definitions</file>
+        <file path="sprints/sprint1/mock-data/mock-data.ts" status="completed" coverage="100">Mock data implementation</file>
+    </implementation_tracking>
+    
+    <ai_instructions>
+        <instruction>Generate TypeScript interfaces from all type definitions</instruction>
+        <instruction>Include JSDoc comments from description fields</instruction>
+        <instruction>Apply constraints as TypeScript type guards or runtime validators</instruction>
+        <instruction>Create zod schemas for runtime validation</instruction>
+        <instruction>Generate mock data factories for testing</instruction>
+        <instruction>Phase 2 extensions should be commented out in generated code</instruction>
+    </ai_instructions>
+    
+</spark_specification>

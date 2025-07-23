@@ -1,0 +1,168 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" 
+           targetNamespace="http://spark-ai.forus.com/schema/v1"
+           xmlns:spark="http://spark-ai.forus.com/schema/v1"
+           elementFormDefault="qualified">
+
+    <!-- Root element for all specifications -->
+    <xs:element name="spark_specification">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element ref="spark:metadata"/>
+                <xs:element ref="spark:content"/>
+                <xs:element ref="spark:implementation_tracking" minOccurs="0"/>
+                <xs:element ref="spark:ai_instructions" minOccurs="0"/>
+            </xs:sequence>
+            <xs:attribute name="version" type="xs:string" use="required"/>
+            <xs:attribute name="type" type="spark:specType" use="required"/>
+        </xs:complexType>
+    </xs:element>
+
+    <!-- Specification types -->
+    <xs:simpleType name="specType">
+        <xs:restriction base="xs:string">
+            <xs:enumeration value="sprint"/>
+            <xs:enumeration value="component"/>
+            <xs:enumeration value="data_model"/>
+            <xs:enumeration value="navigation"/>
+            <xs:enumeration value="api"/>
+        </xs:restriction>
+    </xs:simpleType>
+
+    <!-- Metadata element -->
+    <xs:element name="metadata">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="name" type="xs:string"/>
+                <xs:element name="description" type="xs:string"/>
+                <xs:element name="version" type="xs:string"/>
+                <xs:element name="created_date" type="xs:date"/>
+                <xs:element name="last_updated" type="xs:date"/>
+                <xs:element name="status" type="spark:statusType"/>
+                <xs:element name="author" type="xs:string" minOccurs="0"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <!-- Status types -->
+    <xs:simpleType name="statusType">
+        <xs:restriction base="xs:string">
+            <xs:enumeration value="draft"/>
+            <xs:enumeration value="approved"/>
+            <xs:enumeration value="in_progress"/>
+            <xs:enumeration value="implemented"/>
+            <xs:enumeration value="deprecated"/>
+        </xs:restriction>
+    </xs:simpleType>
+
+    <!-- Content element (varies by type) -->
+    <xs:element name="content">
+        <xs:complexType>
+            <xs:choice>
+                <xs:element ref="spark:sprint_content"/>
+                <xs:element ref="spark:component_content"/>
+                <xs:element ref="spark:data_model_content"/>
+                <xs:element ref="spark:api_content"/>
+            </xs:choice>
+        </xs:complexType>
+    </xs:element>
+
+    <!-- Sprint content structure -->
+    <xs:element name="sprint_content">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element ref="spark:overview"/>
+                <xs:element ref="spark:acceptance_criteria"/>
+                <xs:element ref="spark:data_models"/>
+                <xs:element ref="spark:components"/>
+                <xs:element ref="spark:user_flows"/>
+                <xs:element ref="spark:technical_requirements"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <!-- Acceptance criteria -->
+    <xs:element name="acceptance_criteria">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="criterion" maxOccurs="unbounded">
+                    <xs:complexType>
+                        <xs:sequence>
+                            <xs:element name="description" type="xs:string"/>
+                            <xs:element name="user_story" type="xs:string" minOccurs="0"/>
+                            <xs:element name="implementation_status" type="spark:implementationStatus"/>
+                            <xs:element name="test_cases" minOccurs="0">
+                                <xs:complexType>
+                                    <xs:sequence>
+                                        <xs:element name="test" type="xs:string" maxOccurs="unbounded"/>
+                                    </xs:sequence>
+                                </xs:complexType>
+                            </xs:element>
+                        </xs:sequence>
+                        <xs:attribute name="id" type="xs:ID" use="required"/>
+                        <xs:attribute name="priority" type="spark:priorityType"/>
+                    </xs:complexType>
+                </xs:element>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <!-- Implementation status -->
+    <xs:simpleType name="implementationStatus">
+        <xs:restriction base="xs:string">
+            <xs:enumeration value="pending"/>
+            <xs:enumeration value="in_progress"/>
+            <xs:enumeration value="completed"/>
+            <xs:enumeration value="blocked"/>
+        </xs:restriction>
+    </xs:simpleType>
+
+    <!-- Priority types -->
+    <xs:simpleType name="priorityType">
+        <xs:restriction base="xs:string">
+            <xs:enumeration value="critical"/>
+            <xs:enumeration value="high"/>
+            <xs:enumeration value="medium"/>
+            <xs:enumeration value="low"/>
+        </xs:restriction>
+    </xs:simpleType>
+
+    <!-- Other elements -->
+    <xs:element name="overview" type="xs:string"/>
+    <xs:element name="data_models" type="xs:anyType"/>
+    <xs:element name="components" type="xs:anyType"/>
+    <xs:element name="component_content" type="xs:anyType"/>
+    <xs:element name="data_model_content" type="xs:anyType"/>
+    <xs:element name="api_content" type="xs:anyType"/>
+    <xs:element name="user_flows" type="xs:anyType"/>
+    <xs:element name="technical_requirements" type="xs:anyType"/>
+
+    <!-- Implementation tracking -->
+    <xs:element name="implementation_tracking">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="file" maxOccurs="unbounded">
+                    <xs:complexType>
+                        <xs:simpleContent>
+                            <xs:extension base="xs:string">
+                                <xs:attribute name="path" type="xs:string" use="required"/>
+                                <xs:attribute name="status" type="spark:implementationStatus"/>
+                                <xs:attribute name="coverage" type="xs:integer"/>
+                            </xs:extension>
+                        </xs:simpleContent>
+                    </xs:complexType>
+                </xs:element>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <!-- AI instructions -->
+    <xs:element name="ai_instructions">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="instruction" type="xs:string" maxOccurs="unbounded"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+</xs:schema>

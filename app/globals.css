@@ -1,0 +1,70 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+
+@layer base {
+  :root {
+    --background: 255 255 255;
+    --foreground: 23 23 23;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+  
+  /* Basic code highlighting styles */
+  .hljs {
+    @apply bg-gray-100 text-gray-800 p-4 rounded-md overflow-x-auto;
+  }
+  
+  .hljs-keyword,
+  .hljs-selector-tag,
+  .hljs-type {
+    @apply text-blue-600 font-medium;
+  }
+  
+  .hljs-string,
+  .hljs-selector-attr,
+  .hljs-selector-pseudo,
+  .hljs-addition {
+    @apply text-green-600;
+  }
+  
+  .hljs-comment,
+  .hljs-quote {
+    @apply text-gray-600 italic;
+  }
+  
+  .hljs-number,
+  .hljs-literal,
+  .hljs-variable,
+  .hljs-template-variable,
+  .hljs-tag .hljs-attr,
+  .hljs-deletion {
+    @apply text-orange-600;
+  }
+  
+  .hljs-title,
+  .hljs-section {
+    @apply text-purple-600 font-semibold;
+  }
+}

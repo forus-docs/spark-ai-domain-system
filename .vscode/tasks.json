@@ -1,0 +1,66 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Start MongoDB",
+      "type": "shell",
+      "command": "/Users/jacquesvandenberg/eos-forus/mongodb-macos-aarch64-8.0.11/bin/mongod",
+      "args": [
+        "--dbpath",
+        "~/data/db",
+        "--port",
+        "27017",
+        "--bind_ip",
+        "127.0.0.1"
+      ],
+      "isBackground": true,
+      "problemMatcher": {
+        "pattern": {
+          "regexp": "^(warning|error):\\s+(.*)$",
+          "severity": 1,
+          "message": 2
+        },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "^.*MongoDB starting.*$",
+          "endsPattern": "^.*Waiting for connections.*$"
+        }
+      },
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "panel": "dedicated"
+      }
+    },
+    {
+      "label": "Stop MongoDB",
+      "type": "shell",
+      "command": "pkill",
+      "args": ["mongod"],
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "Check MongoDB Status",
+      "type": "shell",
+      "command": "lsof -i :27017 | grep LISTEN || echo 'MongoDB is not running'",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "Open MongoDB Compass",
+      "type": "shell",
+      "command": "open -a 'MongoDB Compass' --args mongodb://localhost:27017/spark-ai",
+      "presentation": {
+        "echo": true,
+        "reveal": "never"
+      }
+    }
+  ]
+}
