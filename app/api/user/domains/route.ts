@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyAccessToken } from '@/app/lib/auth/jwt';
 import { connectToDatabase } from '@/app/lib/database';
 import User from '@/app/models/User';
-import { PostJourneyService } from '@/app/lib/services/post-journey.service';
+import { TaskJourneyService } from '@/app/lib/services/task-journey.service';
 
 export const dynamic = 'force-dynamic';
 
@@ -139,7 +139,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Assign domain-specific onboarding posts
-    await PostJourneyService.assignDomainOnboardingPosts(userId, domainId);
+    await TaskJourneyService.assignDomainOnboardingTasks(userId, domainId);
 
     return NextResponse.json({
       success: true,

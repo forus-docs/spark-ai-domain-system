@@ -280,8 +280,8 @@ export default function ProcessDetailPage() {
       {/* Chat Interface */}
       {activeChat && (
         <ChatInterfaceV2
-          processName={activeChat.processName}
-          processId={activeChat.processId}
+          masterTaskName={activeChat.processName}
+          masterTaskId={activeChat.processId}
           executionModel={activeChat.executionModel}
           onClose={() => setActiveChat(null)}
           accessToken={accessToken || undefined}

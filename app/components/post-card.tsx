@@ -1,7 +1,7 @@
 'use client';
 
 import { cn } from '@/app/lib/utils';
-import { UserPostDisplay, MasterPost } from '@/app/types/post.types';
+import { UserTaskDisplay, MasterTask } from '@/app/types/post.types';
 import { 
   Shield, 
   BookOpen, 
@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 
 interface PostCardProps {
-  post: UserPostDisplay | MasterPost;
+  post: UserTaskDisplay | MasterTask;
   onClick: () => void;
   isUnassigned?: boolean;
 }
@@ -65,14 +65,14 @@ export function PostCard({ post, onClick, isUnassigned }: PostCardProps) {
   // Determine if this is a master post or user post
   const isMasterPost = !('userId' in post);
   
-  // Get the post data (either from masterPost property or the post itself)
-  const postData = isMasterPost ? post : (post as UserPostDisplay).masterPost;
-  const isNew = !isMasterPost && (post as UserPostDisplay).isNew;
-  const ctaEnabled = isMasterPost ? true : (post as UserPostDisplay).ctaEnabled;
-  const isCompleted = !isMasterPost && (post as UserPostDisplay).isCompleted;
+  // Get the post data (either from domainTask property or the post itself)
+  const postData = isMasterPost ? post : (post as UserTaskDisplay).domainTask;
+  const isNew = !isMasterPost && (post as UserTaskDisplay).isNew;
+  const ctaEnabled = isMasterPost ? true : (post as UserTaskDisplay).ctaEnabled;
+  const isCompleted = !isMasterPost && (post as UserTaskDisplay).isCompleted;
   
-  const Icon = iconMap[postData.iconType || 'checklist'];
-  const colorScheme = colorSchemes[postData.colorScheme || 'blue'];
+  const Icon = iconMap[postData?.iconType || 'checklist'];
+  const colorScheme = colorSchemes[postData?.colorScheme || 'blue'];
 
   return (
     <div
@@ -114,23 +114,23 @@ export function PostCard({ post, onClick, isUnassigned }: PostCardProps) {
             'font-medium text-gray-900 text-sm mb-1',
             isCompleted && 'line-through'
           )}>
-            {postData.title}
+            {postData?.title}
           </h3>
           <p className="text-xs text-gray-600 mb-2 line-clamp-2">
-            {postData.description}
+            {postData?.description}
           </p>
 
           {/* Meta info */}
           <div className="flex items-center gap-3 text-xs text-gray-500">
-            {postData.estimatedTime && (
+            {postData?.estimatedTime && (
               <div className="flex items-center gap-1">
                 <Clock className="w-3 h-3" />
-                <span>{postData.estimatedTime}</span>
+                <span>{postData?.estimatedTime}</span>
               </div>
             )}
-            {postData.reward && (
+            {postData?.reward && (
               <span className="font-medium text-green-600">
-                {postData.reward.displayText}
+                {postData?.reward.displayText}
               </span>
             )}
             {!ctaEnabled && (
@@ -142,7 +142,7 @@ export function PostCard({ post, onClick, isUnassigned }: PostCardProps) {
           </div>
 
           {/* Priority indicator */}
-          {postData.priority === 'urgent' && !isCompleted && (
+          {postData?.priority === 'urgent' && !isCompleted && (
             <div className="mt-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700">
               Urgent
             </div>

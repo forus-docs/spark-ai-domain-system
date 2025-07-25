@@ -1,10 +1,10 @@
 import { NextRequest } from 'next/server';
 import { verifyAccessToken } from '@/app/lib/auth/jwt';
 import { streamGeminiResponse, ChatMessage } from '@/app/lib/ai/gemini-client';
-import { ConversationService, MessageService } from '@/app/services/conversations';
+import { TaskExecutionService, ExecutionMessageService } from '@/app/services/task-executions';
 import { connectToDatabase } from '@/app/lib/database';
 import { generateSystemPrompt, enhanceUserMessage, ProcessContext } from '@/app/lib/ai-prompts';
-import Process from '@/app/models/Process';
+import Process from '@/app/models/MasterTask';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -30,14 +30,14 @@ export async function POST(request: NextRequest) {
     return new Response('Invalid token', { status: 401 });
   }
 
-  const { messages, processId, processContext, systemPrompt, conversationId, domainId, processName, executionModel } = await request.json();
+  const { messages, processId, processContext, systemPrompt, executionId, domainId, processName, executionModel } = await request.json();
 
   console.log('Chat stream request:', {
     userId,
     messagesCount: messages?.length,
     processId,
     domainId,
-    conversationId,
+    executionId,
     hasProcessContext: !!processContext,
     hasSystemPrompt: !!systemPrompt
   });
@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
 
   // Start streaming
   (async () => {
-    let conversation;
+    let taskExecution;
     let userMessage;
     let assistantMessage;
 
@@ -61,35 +61,35 @@ export async function POST(request: NextRequest) {
       // Send initial connection event
       await writer.write(encoder.encode('event: connect\ndata: {"status":"connected"}\n\n'));
 
-      // Create or get conversation
-      console.log('Creating/getting conversation...');
-      if (!conversationId) {
-        // Create new conversation
-        console.log('Creating new conversation for user:', userId);
-        conversation = await ConversationService.createConversation({
+      // Create or get taskExecution
+      console.log('Creating/getting taskExecution...');
+      if (!executionId) {
+        // Create new taskExecution
+        console.log('Creating new taskExecution for user:', userId);
+        taskExecution = await TaskExecutionService.createTaskExecution({
           userId,
           domainId,
-          processId,
-          processName,
+          masterTaskId: processId,
+          masterTaskName: processName,
           executionModel,
           title: messages[messages.length - 1]?.content?.substring(0, 100) || 'New Chat',
         });
-        console.log('Created conversation:', conversation.conversationId);
+        console.log('Created taskExecution:', taskExecution.executionId);
       } else {
-        // Get existing conversation
-        console.log('Getting existing conversation:', conversationId);
-        conversation = await ConversationService.getConversation(conversationId);
-        if (!conversation) {
+        // Get existing taskExecution
+        console.log('Getting existing taskExecution:', executionId);
+        taskExecution = await TaskExecutionService.getTaskExecution(executionId);
+        if (!taskExecution) {
           throw new Error('Conversation not found');
         }
-        console.log('Found existing conversation');
+        console.log('Found existing taskExecution');
       }
 
       // Save user message
       const lastUserMessage = messages[messages.length - 1];
       if (lastUserMessage && lastUserMessage.role === 'user') {
-        userMessage = await MessageService.createMessage({
-          conversationId: conversation.conversationId,
+        userMessage = await ExecutionMessageService.createMessage({
+          executionId: taskExecution.executionId,
           userId,
           role: 'user',
           content: lastUserMessage.content,
@@ -101,17 +101,17 @@ export async function POST(request: NextRequest) {
           const postId = postIdMatch[1];
           console.log('Detected PostID in message:', postId);
           
-          // Import PostJourneyService to handle post completion properly
-          const { PostJourneyService } = await import('@/app/lib/services/post-journey.service');
+          // Import TaskJourneyService to handle post completion properly
+          const { TaskJourneyService } = await import('@/app/lib/services/task-journey.service');
           
-          // Complete the post using PostJourneyService which handles identity verification
+          // Complete the post using TaskJourneyService which handles identity verification
           try {
-            const result = await PostJourneyService.completePost({
+            const result = await TaskJourneyService.completeTask({
               userId,
-              userPostId: postId,
+              userTaskId: postId,
               completionData: {
                 completedViaChat: true,
-                conversationId: conversation.conversationId
+                executionId: taskExecution.executionId
               }
             });
             
@@ -182,8 +182,8 @@ export async function POST(request: NextRequest) {
           finalSystemPrompt = generateSystemPrompt(processCtx);
         }
       } else {
-        // Use system prompt from conversation or default
-        finalSystemPrompt = conversation.systemPrompt || systemPrompt || 
+        // Use system prompt from taskExecution or default
+        finalSystemPrompt = taskExecution.systemPrompt || systemPrompt || 
           'You are a helpful AI assistant for the Spark AI Domain System.';
       }
 
@@ -213,8 +213,8 @@ export async function POST(request: NextRequest) {
       }
       inputTokens += Math.ceil(finalSystemPrompt.split(/\s+/).length * 1.3);
       
-      // Get previous total from conversation if exists
-      const previousMessages = await MessageService.getConversationMessages(conversation.conversationId);
+      // Get previous total from taskExecution if exists
+      const previousMessages = await ExecutionMessageService.getExecutionMessages(taskExecution.executionId);
       let previousTotalTokens = 0;
       let previousTotalCost = 0;
       
@@ -249,7 +249,7 @@ export async function POST(request: NextRequest) {
             id: Date.now().toString(),
             content: chunk,
             role: 'assistant',
-            conversationId: conversation.conversationId,
+            executionId: taskExecution.executionId,
             tokenCount: currentTotalTokens,
             cost: currentCost,
           });
@@ -283,8 +283,8 @@ export async function POST(request: NextRequest) {
         }
 
         // Save assistant message
-        assistantMessage = await MessageService.createMessage({
-          conversationId: conversation.conversationId,
+        assistantMessage = await ExecutionMessageService.createMessage({
+          executionId: taskExecution.executionId,
           userId,
           role: 'assistant',
           content: fullResponse,
@@ -294,10 +294,10 @@ export async function POST(request: NextRequest) {
           parentMessageId: userMessage?.messageId,
         });
 
-        // Update conversation title if it's the first exchange
+        // Update taskExecution title if it's the first exchange
         if (messages.length <= 2) {
           const title = fullResponse.substring(0, 50) + (fullResponse.length > 50 ? '...' : '');
-          await ConversationService.updateConversationTitle(conversation.conversationId, title);
+          await TaskExecutionService.updateTaskExecutionTitle(taskExecution.executionId, title);
         }
       } catch (apiError: any) {
         console.error('Gemini API error:', apiError);
@@ -307,8 +307,8 @@ export async function POST(request: NextRequest) {
         const errorMessage = `I apologize, but I encountered an error processing your request. Error: ${apiError.message || 'Unknown error'}. Please try again.`;
         
         // Save error message
-        await MessageService.createMessage({
-          conversationId: conversation.conversationId,
+        await ExecutionMessageService.createMessage({
+          executionId: taskExecution.executionId,
           userId,
           role: 'assistant',
           content: errorMessage,
@@ -319,7 +319,7 @@ export async function POST(request: NextRequest) {
           id: Date.now().toString(),
           content: errorMessage,
           role: 'assistant',
-          conversationId: conversation.conversationId,
+          executionId: taskExecution.executionId,
         });
         await writer.write(encoder.encode(`event: message\ndata: ${data}\n\n`));
       }

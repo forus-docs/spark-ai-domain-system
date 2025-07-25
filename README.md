@@ -1,13 +1,14 @@
 # Spark AI Domain System
 
 ## Overview
-The Spark AI Domain System is a multi-role, multi-domain enterprise platform that enables users to join industry-specific ecosystems (domains), select roles, and access domain-specific features with AI-assisted process execution.
+The Spark AI Domain System is a QMS-compliant, multi-role, multi-domain enterprise platform that enables users to join industry-specific ecosystems (domains), select roles, and access domain-specific features with AI-assisted task execution through immutable data snapshots.
 
 ## Current Status (January 2025)
+- **QMS-compliant architecture** with immutable snapshot system
 - **Production-ready** authentication system with JWT tokens
 - **MongoDB** database integration for all data storage
 - **Real-time chat** with Server-Sent Events (SSE)
-- **PostJourney system** for personalized user experiences
+- **Task Journey system** for personalized user experiences
 - **SOP-driven AI context** for compliance and guidance
 - **5 execution models** ready for process automation
 
@@ -27,19 +28,33 @@ Create `.env.local` with required variables (see CLAUDE.md)
 npm install
 
 # Start MongoDB (if not running)
-/Users/jacquesvandenberg/eos-forus/mongodb-macos-aarch64-8.0.11/bin/mongod \
-  --dbpath ~/data/db \
-  --port 27017 &
+mongod --dbpath ~/data/db --port 27017 &
 
 # Run development server (port 3001)
 npm run dev
 
 # Run database migrations
 npm run migrate:all
-npm run seed:posts
+
+# Create QMS-compliant tasks (if needed)
+node scripts/migrate-to-qms-compliant.js
 ```
 
-## Architecture
+## QMS-Compliant Architecture 🏛️
+
+### Immutable Snapshot System
+Data flows through complete, immutable snapshots ensuring consistency and audit trails:
+
+```
+MasterTask → DomainTask → UserTask → TaskExecution
+(template)   (domain copy)  (user copy)   (execution)
+```
+
+**Key Benefits:**
+- ✅ Changes require domain approval
+- ✅ Running tasks cannot change mid-execution
+- ✅ Complete audit trail for compliance
+- ✅ Simplified architecture - all data in one place
 
 ### Technology Stack
 - **Framework**: Next.js 14+ with App Router
@@ -53,12 +68,17 @@ npm run seed:posts
 
 ### Key Systems
 
-#### PostJourney System
+#### Task Journey System
 Creates personalized user experiences through:
-- **Master Posts**: Templates defining available activities
-- **UserPosts**: User-specific assignments tracking progress
-- **Process Integration**: Links to AI-assisted processes
-- **Dynamic Context**: Full SOP context for compliance
+- **MasterTasks**: Enterprise-wide task templates with SOPs
+- **DomainTasks**: Domain-adopted tasks with complete snapshots
+- **UserTasks**: User assignments with full execution data
+- **TaskExecutions**: AI-assisted execution sessions
+
+#### QMS Data Flow
+1. **Domain Adoption**: Domain admins adopt MasterTasks, creating DomainTasks with complete data snapshots
+2. **User Assignment**: Users self-assign DomainTasks, creating UserTasks with execution data
+3. **Task Execution**: AI uses ONLY UserTask snapshot data - no dynamic fetching
 
 #### SOP-Driven AI Context
 AI assistants receive comprehensive Standard Operating Procedure context:
@@ -75,43 +95,61 @@ AI assistants receive comprehensive Standard Operating Procedure context:
 4. **BPMN**: Complex business workflows
 5. **Training**: Educational processes
 
-### Data Flow
+## Database Collections
+
+### Core Collections (Renamed for Clarity)
+- **users** - User accounts and authentication
+- **domains** - Domain configurations
+- **masterTasks** - Enterprise task templates with SOPs
+- **domainTasks** - Domain-adopted tasks with snapshots
+- **userTasks** - User task assignments with execution data
+- **taskExecutions** - Active task execution sessions
+- **executionMessages** - Chat messages within executions
+
+### Collection Relationships
 ```
-Posts → UserPosts → Processes → Conversations → Messages
-         ↓              ↓
-     Domain-specific   SOP Context
-     Assignment        for AI
+users ←→ domains (many-to-many membership)
+  ↓
+userTasks → domainTasks → masterTasks (snapshots, not references)
+  ↓
+taskExecutions → executionMessages
 ```
+
+## API Endpoints
+
+### Domain Task Management
+- `POST /api/domains/[domainId]/adopt-task` - Adopt MasterTask with full snapshot
+- `GET /api/domains/[domainId]/adopt-task` - List available tasks for adoption
+
+### User Task Management
+- `GET /api/domain-tasks` - Get domain tasks (assigned and unassigned)
+- `POST /api/domain-tasks/assign` - Self-assign a domain task
+- `POST /api/domain-tasks/[taskId]/task-execution` - Create execution session
+
+### Task Execution
+- `GET /api/task-executions` - List user's executions
+- `GET /api/task-executions/[executionId]` - Get execution details
+- `POST /api/chat/stream` - Stream AI responses
 
 ## Key Documentation
 
-### Current Architecture
+### Architecture & Design
 - `PROJECT_STRUCTURE_ANALYSIS.md` - Complete system architecture
 - `USER_FLOW_DIAGRAM.md` - Visual flow diagrams
+- `docs/QMS_API_DOCUMENTATION.md` - QMS-compliant API reference
 - `CLAUDE.md` - Development guidelines
 
-### Implementation Guides
-- `docs/sop-structure-documentation.md` - SOP structure reference
+### Technical Guides
+- `REFACTORING_NAMING_STRATEGY.md` - Naming conventions
+- `TECHNICAL_DEBT_REGISTER.md` - Known issues and roadmap
 - `docs/mongodb-admin-guide.md` - Database operations
-- `docs/mongodb-mcp-usage.md` - MCP tool usage
 - `scripts/README.md` - Migration documentation
-
-## Database Collections
-
-### Core Collections
-- **users** - User accounts and authentication
-- **domains** - Domain configurations
-- **processes** - Process templates with execution models
-- **posts** - Master post templates
-- **userposts** - User-specific post assignments
-- **conversations** - Chat conversation metadata
-- **messages** - Individual chat messages
 
 ## Development Tools
 
 ### MongoDB MCP Server
 Direct database access through natural language:
-- Configuration: `.mcp.json`
+- Configuration: `~/.claude/.mcp.json`
 - Connection: `mongodb://localhost:27017/spark-ai`
 - Tools prefix: `mcp__mongodb__`
 
@@ -120,13 +158,48 @@ Direct database access through natural language:
 - Port: 3001
 - Full-stack debugging with breakpoints
 
+### Linting & Building
+```bash
+npm run lint        # ESLint check
+npm run build       # Production build
+npm run typecheck   # TypeScript validation
+```
+
+## QMS Compliance Checklist
+
+When working with tasks, ensure:
+- [ ] DomainTasks have `masterTaskSnapshot` field
+- [ ] UserTasks have `executionData` in snapshot
+- [ ] TaskExecutions use ONLY snapshot data
+- [ ] No dynamic fetching from parent collections
+- [ ] All new tasks marked as `isQMSCompliant: true`
+
 ## Design Philosophy
-Minimalist approach with:
-- Clean, uncluttered interfaces
-- Generous whitespace
-- Subtle interactions
-- Typography-first hierarchy
-- Mobile-first responsive design
+- **QMS First**: Immutable snapshots for audit trails
+- **User Initiated**: No automatic task assignment
+- **Clean UI**: Minimalist with generous whitespace
+- **Mobile First**: Responsive design patterns
+- **Type Safe**: Full TypeScript coverage
+
+## Migration Scripts
+
+### QMS Compliance
+```bash
+# Create QMS-compliant tasks from existing data
+node scripts/migrate-to-qms-compliant.js
+
+# Clean up non-compliant tasks (after verification)
+node scripts/cleanup-non-compliant-tasks.js
+```
+
+### Database Maintenance
+```bash
+# Rename collections (if needed)
+node scripts/rename-collections.js
+
+# Investigate data flow
+node scripts/investigate-data-flow.js
+```
 
 ## Historical Reference
 For Sprint documentation and historical specifications, see the `/archive/` directory.

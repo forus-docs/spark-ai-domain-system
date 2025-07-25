@@ -15,6 +15,7 @@ export interface JoinDetails {
 
 export interface Domain {
   id: string;
+  slug?: string; // String identifier like 'maven-hub' for reference
   icon: string;
   name: string;
   tagline: string;

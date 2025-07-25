@@ -1,47 +1,47 @@
 /**
- * Generic Post Journey System Types
+ * Generic Task Journey System Types
  * Used across all domains for personalized home screens
  */
 
 // =====================================================
-// Master Post Collection (Shared Across All Domains)
+// Master Task Collection (Shared Across All Domains)
 // =====================================================
 
-export interface MasterPost {
+export interface MasterTask {
   // Firebase document ID
   id: string;
   
-  // Domain this post belongs to
+  // Domain this task belongs to
   domain: 'maven-hub' | 'wealth-on-wheels' | 'bemnet' | 'pacci' | string;
   
-  // Basic post information
+  // Basic task information
   title: string;
   description: string;
-  postType: PostType;
+  taskType: TaskType;
   
-  // Foreign key to Process collection (optional)
-  processId?: string; // Links to process.processId when ctaAction.type === 'process'
+  // Foreign key to MasterTask collection (optional)
+  masterTaskId?: string; // Links to masterTask.processId when ctaAction.type === 'process'
   
   // Visual elements
   imageUrl?: string; // Optional image
-  iconType?: PostIcon; // Icon-based alternative
-  colorScheme?: PostColorScheme; // For visual variety
+  iconType?: TaskIcon; // Icon-based alternative
+  colorScheme?: TaskColorScheme; // For visual variety
   
   // Navigation
   ctaText: string; // Call to action text
-  ctaAction: PostAction; // What happens when CTA is clicked
+  ctaAction: TaskAction; // What happens when CTA is clicked
   
   // Requirements
   requiresIdentityVerification: boolean; // If true, CTA is disabled until verified
-  prerequisitePosts?: string[]; // Posts that must be completed first
+  prerequisiteTasks?: string[]; // Tasks that must be completed first
   
   // Journey configuration
-  nextPosts?: string[]; // Array of postIds to assign on completion
-  canHide: boolean; // Whether user can hide this post
+  nextTasks?: string[]; // Array of taskIds to assign on completion
+  canHide: boolean; // Whether user can hide this task
   
   // Display configuration
-  priority: PostPriority;
-  category: PostCategory;
+  priority: TaskPriority;
+  category: TaskCategory;
   estimatedTime?: string; // e.g., "5 min", "30 min"
   
   // Rewards (if applicable)
@@ -58,7 +58,58 @@ export interface MasterPost {
   isActive: boolean;
 }
 
-export type PostType = 
+// Domain Task interface (tasks adopted by domains from master tasks)
+export interface DomainTask extends MasterTask {
+  // Reference to the master task template
+  originalMasterTaskId: string;
+  masterTaskVersion: string; // Version of MasterTask at adoption time
+  
+  // QMS-Compliant: Complete snapshot of MasterTask execution data
+  masterTaskSnapshot?: {
+    name: string;
+    category: string;
+    executionModel: string;
+    currentStage: string;
+    aiAgentAttached: boolean;
+    aiAgentRole?: string;
+    aiAgentId?: string;
+    systemPrompt?: string;
+    intro?: string;
+    standardOperatingProcedure?: any;
+    contextDocuments?: any[];
+    requiredParameters?: any[];
+    checklist?: any[];
+    formSchema?: any;
+    validationRules?: any;
+    workflowDefinition?: any;
+    curriculum?: any[];
+    sopMetadata?: any;
+  };
+  
+  // Domain-specific customizations
+  domainCustomizations?: {
+    title?: string;
+    description?: string;
+    estimatedTime?: string;
+    systemPrompt?: string;
+    additionalContext?: string;
+    reward?: {
+      amount: number;
+      currency: string;
+      displayText: string;
+    };
+  };
+  
+  // Domain adoption metadata
+  adoptedAt: Date;
+  adoptedBy: string;
+  adoptionNotes?: string;
+  isActiveInDomain: boolean;
+  isQMSCompliant?: boolean;
+}
+
+
+export type TaskType = 
   | 'identity_verification'
   | 'onboarding'
   | 'training'
@@ -68,7 +119,7 @@ export type PostType =
   | 'opportunity'
   | 'compliance';
 
-export type PostIcon = 
+export type TaskIcon = 
   | 'shield' // Identity/security
   | 'book' // Training
   | 'checklist' // Tasks
@@ -78,46 +129,47 @@ export type PostIcon =
   | 'briefcase' // Business
   | 'users' // Community;
 
-export type PostColorScheme = 
+export type TaskColorScheme = 
   | 'blue' // Primary actions
   | 'green' // Success/completed
   | 'orange' // Warnings/important
   | 'purple' // Special/premium
   | 'gray'; // Disabled/inactive
 
-export type PostAction = {
+export type TaskAction = {
   type: 'navigate' | 'external' | 'modal' | 'process';
   target: string; // Route, URL, or process ID
   params?: Record<string, any>;
 };
 
-export type PostPriority = 'urgent' | 'high' | 'normal' | 'low';
+export type TaskPriority = 'urgent' | 'high' | 'normal' | 'low';
 
-export type PostCategory = 
+export type TaskCategory = 
   | 'required' // Must complete
   | 'recommended' // Should complete
   | 'optional'; // Nice to have
 
 // =====================================================
-// User Journey Posts (Assigned to Individual Users)
+// User Tasks (Assigned to Individual Users)
 // =====================================================
 
-export interface UserPost {
+export interface UserTask {
   // Firebase document ID
   id: string;
   
-  // User this post is assigned to
+  // User this task is assigned to
   userId: string;
   
-  // Reference to master post
-  postId: string; // ID of master post
-  processId?: string; // Inherited from master post at assignment time
-  postSnapshot: MasterPostSnapshot; // Cached data at assignment time
+  // Reference to domain task
+  domainTaskId: string; // ID of domain task
+  masterTaskId?: string; // Inherited from domain task at assignment time
+  taskSnapshot: DomainTaskSnapshot; // Cached data at assignment time
   
   // Assignment details
-  assignedAt: Date;
-  assignedBy: 'system' | 'admin' | string;
-  assignmentReason: string; // e.g., "user_registered", "completed_post_xyz"
+  timestampAssigned: Date;
+  assignedTo: string; // User ID of who the task is assigned to
+  assignedBy: 'system' | 'admin' | string; // Who assigned the task
+  assignmentReason: string; // e.g., "user_registered", "completed_task_xyz", "self-assigned"
   
   // User interaction
   isHidden: boolean;
@@ -127,16 +179,19 @@ export interface UserPost {
   lastViewedAt?: Date;
   viewCount: number;
   
-  // Progress tracking (for multi-step posts)
+  // Progress tracking (for multi-step tasks)
   progress?: {
     currentStep: number;
     totalSteps: number;
     percentComplete: number;
   };
+  
+  // QMS compliance flag
+  isQMSCompliant?: boolean;
 }
 
-// Snapshot of master post data at assignment time
-export interface MasterPostSnapshot {
+// Snapshot of domain task data at assignment time
+export interface DomainTaskSnapshot {
   // Core content fields
   title: string;
   description: string;
@@ -144,21 +199,21 @@ export interface MasterPostSnapshot {
   version: string;
   
   // Visual styling
-  iconType?: PostIcon;
-  colorScheme?: PostColorScheme;
+  iconType?: TaskIcon;
+  colorScheme?: TaskColorScheme;
   
   // CTA configuration
   ctaText: string;
-  ctaAction: PostAction;
+  ctaAction: TaskAction;
   
   // Behavior flags
   requiresIdentityVerification: boolean;
   canHide: boolean;
   
   // Categorization
-  postType: PostType;
-  priority: PostPriority;
-  category: PostCategory;
+  taskType: TaskType;
+  priority: TaskPriority;
+  category: TaskCategory;
   
   // Additional metadata
   estimatedTime?: string;
@@ -169,8 +224,42 @@ export interface MasterPostSnapshot {
   };
   
   // Relationships (preserved for audit trail)
-  prerequisitePosts?: string[];
-  nextPosts?: string[];
+  prerequisiteTasks?: string[];
+  nextTasks?: string[];
+  
+  // QMS-Compliant: Complete execution data from MasterTask
+  executionData?: {
+    executionModel: string;
+    currentStage: string;
+    aiAgentAttached: boolean;
+    aiAgentRole?: string;
+    aiAgentId?: string;
+    systemPrompt?: string;
+    intro?: string;
+    standardOperatingProcedure?: any;
+    contextDocuments?: any[];
+    requiredParameters?: any[];
+    checklist?: any[];
+    formSchema?: any;
+    validationRules?: any;
+    workflowDefinition?: any;
+    curriculum?: any[];
+    sopMetadata?: any;
+  };
+  
+  // Domain customizations applied
+  domainCustomizations?: {
+    title?: string;
+    description?: string;
+    estimatedTime?: string;
+    systemPrompt?: string;
+    additionalContext?: string;
+    reward?: {
+      amount: number;
+      currency: string;
+      displayText: string;
+    };
+  };
 }
 
 // =====================================================
@@ -188,9 +277,9 @@ export interface UserIdentityState {
 // Display Types for UI
 // =====================================================
 
-export interface UserPostDisplay extends UserPost {
-  // Enriched with current master post data
-  masterPost: MasterPost;
+export interface UserTaskDisplay extends UserTask {
+  // Enriched with current domain task data
+  domainTask: DomainTask;
   
   // Computed display properties
   isNew: boolean; // Assigned in last 24 hours
@@ -204,36 +293,36 @@ export interface UserPostDisplay extends UserPost {
 // Service Method Types
 // =====================================================
 
-export interface PostAssignmentRequest {
+export interface TaskAssignmentRequest {
   userId: string;
-  postId: string;
+  taskId: string;
   reason: string;
   assignedBy: 'system' | 'admin' | string;
 }
 
-export interface PostCompletionRequest {
+export interface TaskCompletionRequest {
   userId: string;
-  userPostId: string;
+  userTaskId: string;
   completionData?: Record<string, any>;
 }
 
-export interface PostFilterOptions {
+export interface TaskFilterOptions {
   includeHidden?: boolean;
   includeCompleted?: boolean;
   domain?: string;
-  category?: PostCategory;
+  category?: TaskCategory;
   limit?: number;
 }
 
 // =====================================================
-// Initial Identity Verification Post
+// Initial Identity Verification Task
 // =====================================================
 
-export const IDENTITY_VERIFICATION_POST: Partial<MasterPost> = {
-  domain: 'all', // Special domain for cross-domain posts
+export const IDENTITY_VERIFICATION_TASK: Partial<MasterTask> = {
+  domain: 'all', // Special domain for cross-domain tasks
   title: 'Verify Your Identity',
   description: 'Complete identity verification to unlock all features and enable transactions',
-  postType: 'identity_verification',
+  taskType: 'identity_verification',
   iconType: 'shield',
   colorScheme: 'orange',
   ctaText: 'Start Verification',
@@ -247,3 +336,4 @@ export const IDENTITY_VERIFICATION_POST: Partial<MasterPost> = {
   category: 'required',
   estimatedTime: '5 min'
 };
+

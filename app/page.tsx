@@ -8,15 +8,15 @@ import { useDomain } from '@/app/contexts/domain-context';
 import { useAuth } from '@/app/contexts/auth-context';
 import { ChevronRight, Sparkles, RefreshCw, Bug } from 'lucide-react';
 import { PostCard } from '@/app/components/post-card';
-import { UserPostDisplay, MasterPost } from '@/app/types/post.types';
+import { UserTaskDisplay, MasterTask } from '@/app/types/post.types';
 import { DebugPopup } from '@/app/components/debug-popup';
 
 function HomePage() {
   const router = useRouter();
   const { currentDomain, isLoading: isDomainLoading } = useDomain();
   const { user, accessToken } = useAuth();
-  const [userPosts, setUserPosts] = useState<UserPostDisplay[]>([]);
-  const [unassignedPosts, setUnassignedPosts] = useState<MasterPost[]>([]);
+  const [userPosts, setUserPosts] = useState<UserTaskDisplay[]>([]);
+  const [unassignedPosts, setUnassignedPosts] = useState<MasterTask[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showDebug, setShowDebug] = useState(false);
   
@@ -31,7 +31,7 @@ function HomePage() {
     }
   }, [user, currentDomain, isDomainLoading, router]);
 
-  // Fetch posts
+  // Fetch user's assigned tasks
   useEffect(() => {
     if (!user || !accessToken) return;
     
@@ -41,7 +41,7 @@ function HomePage() {
       return;
     }
 
-    const fetchPosts = async () => {
+    const fetchUserTasks = async () => {
       setIsLoading(true);
       try {
         const params = new URLSearchParams();
@@ -50,77 +50,77 @@ function HomePage() {
           params.append('domain', currentDomain.id);
         }
 
-        console.log('[HomePage] Fetching posts with params:', params.toString());
+        console.log('[HomePage] Fetching user tasks with params:', params.toString());
         
-        const response = await fetch(`/api/posts?${params}`, {
+        const response = await fetch(`/api/domain-tasks?${params}`, {
           headers: {
             'Authorization': `Bearer ${accessToken}`,
           },
         });
 
-        console.log('[HomePage] Posts response status:', response.status);
+        console.log('[HomePage] User tasks response status:', response.status);
         
         if (!response.ok) {
-          console.error('[HomePage] Failed to fetch posts:', response.status);
+          console.error('[HomePage] Failed to fetch user tasks:', response.status);
           return;
         }
         
         const data = await response.json();
-        console.log('[HomePage] Posts data:', data);
-        setUserPosts(data.posts || []);
+        console.log('[HomePage] User tasks data:', data);
+        setUserPosts(data.tasks || []);
       } catch (error) {
-        console.error('[HomePage] Error fetching posts:', error);
+        console.error('[HomePage] Error fetching user tasks:', error);
       } finally {
         setIsLoading(false);
       }
     };
 
-    fetchPosts();
+    fetchUserTasks();
   }, [user, accessToken, currentDomain]);
 
-  // Fetch unassigned posts for all domains (user-initiated assignment)
+  // Fetch domain tasks that user can assign to themselves
   useEffect(() => {
     if (!user || !accessToken || !currentDomain) return;
 
-    const fetchUnassignedPosts = async () => {
+    const fetchDomainTasks = async () => {
       try {
-        // Fetch all master posts for the current domain
+        // Fetch all domain tasks for the current domain
         const params = new URLSearchParams({
           domain: currentDomain.id
         });
         
-        console.log('[HomePage] Fetching master posts with params:', params.toString());
+        console.log('[HomePage] Fetching domain tasks with params:', params.toString());
         
-        const response = await fetch(`/api/posts/master?${params}`, {
+        const response = await fetch(`/api/domain-tasks/master?${params}`, {
           headers: {
             'Authorization': `Bearer ${accessToken}`,
           },
         });
 
-        console.log('[HomePage] Master posts response status:', response.status);
+        console.log('[HomePage] Domain tasks response status:', response.status);
 
         if (!response.ok) {
-          console.error('[HomePage] Failed to fetch master posts:', response.status);
+          console.error('[HomePage] Failed to fetch domain tasks:', response.status);
           return;
         }
         
         const data = await response.json();
-        console.log('[HomePage] Master posts data:', data);
+        console.log('[HomePage] Domain tasks data:', data);
         
-        // Filter out posts that are already assigned to the user
-        const assignedPostIds = userPosts.map(p => p.postId);
-        const unassignedMasterPosts = data.posts.filter((mp: MasterPost) => 
-          !assignedPostIds.includes(mp.id)
+        // Filter out tasks that are already assigned to the user
+        const assignedTaskIds = userPosts.map(p => p.domainTaskId);
+        const unassignedDomainTasks = data.posts.filter((dt: MasterTask) => 
+          !assignedTaskIds.includes(dt.id)
         );
         
-        console.log('[HomePage] Unassigned posts after filtering:', unassignedMasterPosts.length);
-        setUnassignedPosts(unassignedMasterPosts);
+        console.log('[HomePage] Unassigned domain tasks after filtering:', unassignedDomainTasks.length);
+        setUnassignedPosts(unassignedDomainTasks);
       } catch (error) {
-        console.error('[HomePage] Error fetching master posts:', error);
+        console.error('[HomePage] Error fetching domain tasks:', error);
       }
     };
 
-    fetchUnassignedPosts();
+    fetchDomainTasks();
   }, [user, accessToken, currentDomain, userPosts]);
 
   // Show loading state while contexts are initializing
@@ -141,7 +141,12 @@ function HomePage() {
     );
   }
 
-  const handlePostClick = async (post: UserPostDisplay | MasterPost) => {
+  const handlePostClick = async (post: UserTaskDisplay | MasterTask) => {
+    console.log('[HomePage] handlePostClick called with:', {
+      id: post.id,
+      isMasterPost: !('userId' in post),
+      post
+    });
     
     // Check if this is a master post (unassigned)
     const isMasterPost = !('userId' in post);
@@ -150,25 +155,27 @@ function HomePage() {
       // This is a master post - need to assign it first
       
       try {
-        const response = await fetch('/api/posts/assign', {
+        console.log('[HomePage] Assigning task:', { taskId: post.id, post });
+        const response = await fetch('/api/domain-tasks/assign', {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${accessToken}`,
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ postId: post.id }),
+          body: JSON.stringify({ taskId: post.id }),
         });
 
         if (!response.ok) {
           const error = await response.json();
+          console.error('[HomePage] Task assignment failed:', error);
           // Failed to assign post
-          alert('Failed to assign post. Please try again.');
+          alert(`Failed to assign post: ${error.error || 'Unknown error'}`);
           return;
         }
 
         
         // Refresh posts to get the newly assigned UserPost
-        const postsResponse = await fetch(`/api/posts?domain=${currentDomain?.id}`, {
+        const postsResponse = await fetch(`/api/domain-tasks?domain=${currentDomain?.id}`, {
           headers: {
             'Authorization': `Bearer ${accessToken}`,
           },
@@ -180,11 +187,11 @@ function HomePage() {
         }
         
         const postsData = await postsResponse.json();
-        setUserPosts(postsData.posts || []);
+        setUserPosts(postsData.tasks || []);
         
         // Find the newly created UserPost
-        const newUserPost = postsData.posts.find((p: UserPostDisplay) => 
-          p.postId === post.id
+        const newUserPost = postsData.tasks.find((p: UserTaskDisplay) => 
+          p.domainTaskId === post.id
         );
         
         if (newUserPost) {
@@ -197,28 +204,56 @@ function HomePage() {
       }
     } else {
       // This is already a UserPost
-      await handleUserPostClick(post as UserPostDisplay);
+      await handleUserPostClick(post as UserTaskDisplay);
     }
   };
 
-  const handleUserPostClick = async (post: UserPostDisplay) => {
+  const handleUserPostClick = async (post: UserTaskDisplay) => {
+    console.log('[HomePage] handleUserPostClick called with:', {
+      postId: post.id,
+      masterTaskId: post.masterTaskId,
+      domainTask: post.domainTask
+    });
     
     // Mark as viewed
-    await fetch(`/api/posts/${post.id}`, {
+    await fetch(`/api/domain-tasks/${post.id}`, {
       headers: {
         'Authorization': `Bearer ${accessToken}`,
       },
     });
 
-    // Check if post has a process - navigate to process detail page
-    if (post.processId) {
-      router.push(`/process/${post.processId}`);
+    // Check if post has a masterTaskId - create task execution and navigate to chat
+    if (post.masterTaskId) {
+      try {
+        // Create task execution
+        const executionResponse = await fetch(`/api/domain-tasks/${post.id}/task-execution`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+          },
+        });
+
+        if (executionResponse.ok) {
+          const data = await executionResponse.json();
+          console.log('[HomePage] Task execution created:', data);
+          router.push(`/chat/${data.executionId}`);
+        } else {
+          const errorData = await executionResponse.json();
+          console.error('[HomePage] Failed to create task execution:', {
+            status: executionResponse.status,
+            error: errorData
+          });
+          alert(`Failed to create task execution: ${errorData.error || 'Unknown error'}`);
+        }
+      } catch (error) {
+        console.error('Error creating task execution:', error);
+      }
       return;
     }
 
     // Handle navigation based on action type for non-process posts
-    const action = post.masterPost.ctaAction;
-    switch (action.type) {
+    const action = post.domainTask?.ctaAction;
+    switch (action?.type) {
       case 'navigate':
         router.push(action.target);
         break;
@@ -245,17 +280,17 @@ function HomePage() {
   });
   
   // Separate ID verification posts from regular posts
-  const verificationUserPosts = userPosts.filter(p => p.masterPost?.postType === 'identity_verification');
-  const verificationUnassignedPosts = unassignedPosts.filter(p => p.postType === 'identity_verification');
+  const verificationUserPosts = userPosts.filter(p => p.domainTask?.taskType === 'identity_verification');
+  const verificationUnassignedPosts = unassignedPosts.filter(p => p.taskType === 'identity_verification');
   
   // Filter out verification posts from regular categories
-  const nonVerificationUserPosts = userPosts.filter(p => p.masterPost?.postType !== 'identity_verification');
-  const nonVerificationUnassignedPosts = unassignedPosts.filter(p => p.postType !== 'identity_verification');
+  const nonVerificationUserPosts = userPosts.filter(p => p.domainTask?.taskType !== 'identity_verification');
+  const nonVerificationUnassignedPosts = unassignedPosts.filter(p => p.taskType !== 'identity_verification');
   
   // Group regular posts by category
-  const requiredUserPosts = nonVerificationUserPosts.filter(p => p.masterPost?.category === 'required');
-  const recommendedUserPosts = nonVerificationUserPosts.filter(p => p.masterPost?.category === 'recommended');
-  const optionalUserPosts = nonVerificationUserPosts.filter(p => p.masterPost?.category === 'optional');
+  const requiredUserPosts = nonVerificationUserPosts.filter(p => p.domainTask?.category === 'required');
+  const recommendedUserPosts = nonVerificationUserPosts.filter(p => p.domainTask?.category === 'recommended');
+  const optionalUserPosts = nonVerificationUserPosts.filter(p => p.domainTask?.category === 'optional');
   
   // Group unassigned regular posts by category
   const requiredUnassignedPosts = nonVerificationUnassignedPosts.filter(p => p.category === 'required');

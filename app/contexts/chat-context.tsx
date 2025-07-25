@@ -41,7 +41,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     const loadConversations = async () => {
       setIsLoading(true);
       try {
-        const response = await fetch('/api/conversations?limit=10', {
+        const response = await fetch('/api/task-executions?limit=10', {
           headers: {
             'Authorization': `Bearer ${accessToken}`,
           },
@@ -49,17 +49,17 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
         if (response.ok) {
           const data = await response.json();
-          const chats: Chat[] = data.conversations.map((conv: any) => ({
-            id: conv._id,
-            conversationId: conv.conversationId,
-            domainId: conv.domainId,
-            processName: conv.processName || 'Chat',
-            processId: conv.processId,
-            executionModel: conv.executionModel || 'chat',
-            startedAt: new Date(conv.createdAt),
-            lastMessageAt: new Date(conv.updatedAt),
-            messageCount: conv.messages?.length || 0,
-            title: conv.title,
+          const chats: Chat[] = data.executions.map((exec: any) => ({
+            id: exec._id,
+            conversationId: exec.executionId,
+            domainId: exec.domainId,
+            processName: exec.masterTaskName || 'Chat',
+            processId: exec.masterTaskId,
+            executionModel: exec.executionModel || 'chat',
+            startedAt: new Date(exec.createdAt),
+            lastMessageAt: new Date(exec.updatedAt),
+            messageCount: exec.messages?.length || 0,
+            title: exec.title,
           }));
           setRecentChats(chats);
         }
