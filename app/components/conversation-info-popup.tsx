@@ -3,8 +3,8 @@
 import { useState, useEffect } from 'react';
 import { X, FileText, CheckSquare, Info, Loader2, Workflow, Brain, GitBranch, GraduationCap, Layers } from 'lucide-react';
 
-interface ConversationInfoPopupProps {
-  conversationId: string;
+interface TaskExecutionInfoPopupProps {
+  executionId: string;
   accessToken?: string;
   onClose: () => void;
 }
@@ -27,9 +27,9 @@ interface ProcessChecklist {
   }>;
 }
 
-interface ConversationInfo {
-  conversation: {
-    conversationId: string;
+interface TaskExecutionInfo {
+  taskExecution: {
+    executionId: string;
     title: string;
     processId?: string;
     processName?: string;
@@ -140,8 +140,8 @@ const maturityStages = {
   }
 };
 
-export function ConversationInfoPopup({ conversationId, accessToken, onClose }: ConversationInfoPopupProps) {
-  const [info, setInfo] = useState<ConversationInfo | null>(null);
+export function ConversationInfoPopup({ executionId, accessToken, onClose }: TaskExecutionInfoPopupProps) {
+  const [info, setInfo] = useState<TaskExecutionInfo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -158,19 +158,19 @@ export function ConversationInfoPopup({ conversationId, accessToken, onClose }: 
           headers['Authorization'] = `Bearer ${accessToken}`;
         }
 
-        // Fetch conversation info (includes userPost and process details)
-        const response = await fetch(`/api/conversations/${conversationId}/info`, {
+        // Fetch taskExecution info (includes userPost and process details)
+        const response = await fetch(`/api/task-executions/${executionId}/info`, {
           headers,
         });
 
         if (!response.ok) {
-          throw new Error(`Failed to load conversation info: ${response.status}`);
+          throw new Error(`Failed to load taskExecution info: ${response.status}`);
         }
 
         const data = await response.json();
         setInfo(data);
       } catch (err) {
-        console.error('Error fetching conversation info:', err);
+        console.error('Error fetching taskExecution info:', err);
         setError(err instanceof Error ? err.message : 'Failed to load information');
       } finally {
         setIsLoading(false);
@@ -178,7 +178,7 @@ export function ConversationInfoPopup({ conversationId, accessToken, onClose }: 
     };
 
     fetchConversationInfo();
-  }, [conversationId, accessToken]);
+  }, [executionId, accessToken]);
 
   return (
     <div className="fixed inset-0 z-[60]">
@@ -217,11 +217,11 @@ export function ConversationInfoPopup({ conversationId, accessToken, onClose }: 
                   Conversation Details
                 </h3>
                 <div className="bg-gray-50 rounded-lg p-4 space-y-2">
-                  <div><span className="font-medium">Title:</span> {info.conversation.title}</div>
-                  <div><span className="font-medium">Created:</span> {new Date(info.conversation.createdAt).toLocaleString()}</div>
-                  <div><span className="font-medium">Last Updated:</span> {new Date(info.conversation.updatedAt).toLocaleString()}</div>
-                  {info.conversation.domainId && (
-                    <div><span className="font-medium">Domain:</span> {info.conversation.domainId}</div>
+                  <div><span className="font-medium">Title:</span> {info.taskExecution.title}</div>
+                  <div><span className="font-medium">Created:</span> {new Date(info.taskExecution.createdAt).toLocaleString()}</div>
+                  <div><span className="font-medium">Last Updated:</span> {new Date(info.taskExecution.updatedAt).toLocaleString()}</div>
+                  {info.taskExecution.domainId && (
+                    <div><span className="font-medium">Domain:</span> {info.taskExecution.domainId}</div>
                   )}
                 </div>
               </section>

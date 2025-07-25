@@ -1,251 +1,162 @@
-# CLAUDE.md - Forus Spark Project
+# CLAUDE.md
 
-@/Users/jacquesvandenberg/eos-forus/CLAUDE.md
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-<hierarchy>
-  <level-1>Workspace Guidelines (imported above) - UNIVERSAL RULES</level-1>
-  <level-2>Project Guidelines (this file) - PROJECT-SPECIFIC DETAILS</level-2>
-</hierarchy>
-
-<critical-reminder>
-The imported workspace file contains MANDATORY workflows that must be followed:
-- TodoWrite tool usage for all non-trivial tasks
-- Lint → Diagnostics → Build workflow after code changes
-- BE THE HAMMER principle for proactive tool usage
-- Never commit unless explicitly asked
-Project-specific guidelines NEVER override workspace guidelines.
-</critical-reminder>
-
-## CRITICAL: FILES TO READ ON STARTUP
-
-**IMMEDIATELY READ these files for complete system understanding:**
-
-1. **PROJECT_STRUCTURE_ANALYSIS.md** - Architecture, directories, API routes, data flow
-2. **USER_FLOW_DIAGRAM.md** - User journeys and state management
-3. **Key Files**: `/app/api/posts/[postId]/conversation/route.ts` (SOP context assembly)
-
-## RESOLVED ISSUES (January 2025)
-
-### 1. ✅ Double Refresh Issue 
-- Fixed by adding proper domain redirect logic
-- Tailwind spin animation added to config
-
-### 2. ✅ OAuth-Ready Auth
-- Unified `/auth` page implemented
-- Removed localStorage-based first-time user detection
-
-### 3. ✅ User Verification Persistence
-- Fixed to use `identity.isVerified` (nested structure)
-- All components now use correct field path
-- Database properly updates nested identity object
-
-## Project Overview
-
-Multi-role, multi-domain enterprise platform using:
-- Next.js 14+ App Router, TypeScript, Tailwind CSS
-- MongoDB with JWT auth and SSE streaming
-- Port 3001
-
-## Development
+## Development Commands
 
 ```bash
-npm run dev        # Port 3001
-npm run build      # Production build
-npm run lint       # ESLint
-npm run migrate:all # Run MongoDB migrations
-npm run seed:posts  # Seed data
+# Development
+npm run dev          # Start development server on port 3001
+npm run build        # Build for production
+npm run lint         # Run ESLint
+npm run typecheck    # TypeScript type checking
+
+# Database Management
+npm run migrate:all  # Run all database migrations
+npm run seed:posts   # Seed initial posts data
+npm run migrate:sop  # Migrate SOP structures
+
+# QMS Migration Scripts
+node scripts/migrate-to-qms-compliant.js     # Create QMS-compliant tasks
+node scripts/cleanup-non-compliant-tasks.js  # Remove old non-compliant data
+node scripts/investigate-data-flow.js        # Analyze data compliance
 ```
 
-### Environment (.env.local)
-```env
+## Architecture Overview
+
+### QMS-Compliant Data Flow
+The system implements immutable snapshots for Quality Management System compliance:
+
+```
+MasterTask → DomainTask → UserTask → TaskExecution
+```
+
+Each arrow represents a COMPLETE data copy, not a reference. This ensures:
+- Changes require explicit approval at each level
+- Running tasks cannot change mid-execution  
+- Complete audit trail for compliance
+
+### Core Services Architecture
+
+```
+/app
+  /api                          # API Routes (Next.js App Router)
+    /auth                       # JWT authentication endpoints
+    /domain-tasks              # Task management endpoints
+    /task-executions           # Execution session management
+    /chat/stream               # SSE streaming for AI chat
+    /domains/[domainId]/adopt-task  # QMS-compliant task adoption
+  
+  /models                       # Mongoose schemas
+    MasterTask.ts              # Enterprise task templates with SOPs
+    DomainTask.ts              # Domain-adopted tasks (with masterTaskSnapshot)
+    UserTask.ts                # User assignments (with executionData)
+    TaskExecution.ts           # Active execution sessions
+    
+  /services                     # Business logic
+    task-executions.ts         # TaskExecutionService, ExecutionMessageService
+    domain-adoption.service.ts # QMS-compliant adoption logic
+    
+  /lib/services
+    task-journey.service.ts    # User task assignment with snapshots
+```
+
+### Authentication & Session Management
+- JWT tokens with access/refresh pattern
+- User sessions persist across refreshes via refresh tokens
+- Domain membership tracked in user.domains array
+- Current domain in user.currentDomainId
+
+### Critical Data Structures
+
+**User Identity (Nested Structure):**
+```typescript
+user.identity.isVerified    // NOT user.isVerified
+user.identity.verifiedAt
+user.identity.verificationType
+```
+
+**Task Snapshot Architecture:**
+- DomainTask contains `masterTaskSnapshot` with ALL execution data
+- UserTask contains `taskSnapshot.executionData` with ALL execution fields
+- TaskExecution uses ONLY UserTask snapshot data
+
+## Environment Configuration
+
+Required `.env.local` variables:
+```
 MONGODB_URI=mongodb://localhost:27017/spark-ai
-JWT_SECRET=your-super-secret-jwt-key
-JWT_REFRESH_SECRET=your-super-secret-refresh-jwt-key
-SESSION_SECRET=your-session-secret
-CREDS_KEY=your-32-character-encryption-key
-CREDS_IV=your-16-character-iv
-OPENAI_API_KEY=your-openai-api-key
+JWT_SECRET=<32+ character secret>
+JWT_REFRESH_SECRET=<32+ character secret>
+SESSION_SECRET=<32+ character secret>
+CREDS_KEY=<32 character encryption key>
+CREDS_IV=<16 character IV>
+OPENAI_API_KEY=<OpenAI API key>
 ```
 
-## Key Concepts
+## MongoDB Setup
 
-### PostJourney System (UPDATED January 2025)
-Posts → UserPosts → Processes → Conversations → Messages
+Database: `spark-ai` on port 27017
 
-**CRITICAL CHANGE**: User-Initiated Post Assignment
-- NO automatic post assignment on registration or domain join
-- ALL posts (including identity verification) must be clicked to assign
-- Users see unassigned posts with "Assign" badge
-- Master posts API includes both domain-specific and universal (domain='all') posts
+Collections (post-refactoring):
+- `users` - User accounts with nested identity
+- `domains` - Domain configurations  
+- `masterTasks` - Task templates with SOPs
+- `domainTasks` - Domain-adopted tasks with snapshots
+- `userTasks` - User assignments with execution data
+- `taskExecutions` - Active execution sessions
+- `executionMessages` - Chat messages
 
-### Variable Naming Convention
-**In Code:**
-- `userPosts` = User's assigned posts (UserPosts collection from DB)
-- `unassignedPosts` = Master post templates not yet assigned (Posts collection from DB)
+## API Integration Points
 
-**Database Collections:**
-- `posts` = Master post templates
-- `userposts` = User-specific instances
-
-### User Flow Changes
-1. User registers/logs in → NO posts auto-assigned
-2. Navigate to home → See ALL posts as unassigned
-3. Click any post → Assigns to user → Navigate to process detail page
-4. Process detail page → Shows intro → Start button (if verified)
-5. Click Start → Creates conversation → Navigate to chat
-
-### 5 Execution Models (Sprint 2)
-1. **Form** - Structured data collection
-2. **SOP** - Standard Operating Procedures with compliance
-3. **Knowledge** - Information retrieval
-4. **BPMN** - Complex workflows
-5. **Training** - Educational processes
-
-### SOP Context (Current Focus)
-- Full SOP passed to AI in `/api/posts/[postId]/conversation/route.ts`
-- Includes: objectives, scope, procedures, roles, compliance, decision points
-- Ensures AI has complete procedural knowledge
-
-## MongoDB Schema
-
+### Task Adoption (Domain Admin Only)
 ```
-users → domains (many-to-many)
-posts → processes (optional link)
-userposts → conversations → messages
+POST /api/domains/[domainId]/adopt-task
+Body: { masterTaskId, customizations? }
 ```
 
-### Key Collections
-- **users**: Auth & domain membership
-- **posts**: Master templates
-- **userposts**: User assignments
-- **processes**: SOPs with AI config
-- **conversations**: Chat sessions
-- **messages**: Chat history
-
-### User Data Structure (CRITICAL)
-The user object has a **nested identity structure**:
-```javascript
-{
-  id: string,
-  email: string,
-  name: string,
-  currentDomainId: string,
-  domains: Array<{domainId, role, joinedAt}>,
-  identity: {
-    isVerified: boolean,      // ← CORRECT: identity.isVerified
-    verifiedAt?: Date,
-    verificationType?: string,
-    verificationLevel?: string
-  }
-}
+### Task Assignment (User Self-Service)
+```
+POST /api/domain-tasks/assign
+Body: { taskId }
 ```
 
-**IMPORTANT**: Always use `user.identity.isVerified`, NOT `user.isVerified`
-
-### Persistence Pattern
-All user data follows the same persistence pattern:
-1. **Domains**: `user.domains` array → MongoDB & localStorage
-2. **Current Domain**: `user.currentDomainId` → MongoDB & localStorage  
-3. **Verification**: `user.identity.isVerified` → MongoDB & localStorage
-
-All three persist across:
-- Page refreshes
-- Browser restarts
-- Session restores via refresh tokens
-
-## Critical Paths
-
-### Auth Flow (TO BE SIMPLIFIED)
-Current: Register/Login → JWT → Domain Selection → Home
-Future: /auth → JWT → Domain Selection → Home
-
-### Post-to-Chat Flow (UPDATED January 2025)
-1. Click Post (assigned or unassigned)
-2. If unassigned → Assign to user first
-3. Navigate to `/process/[processId]` (process detail page)
-4. Show process intro and details
-5. If requires verification && !verified → Show locked message
-6. If can start → User clicks "Start Process"
-7. Create conversation with SOP context
-8. Navigate to `/chat/[conversationId]` → SSE streaming
-
-## MongoDB Operations
-
-```bash
-# Start MongoDB
-mongod --dbpath ~/data/db --port 27017
-
-# MongoDB Compass
-mongodb://localhost:27017/spark-ai
+### Task Execution (QMS-Compliant)
 ```
+POST /api/domain-tasks/[userTaskId]/task-execution
+```
+Returns error if UserTask lacks executionData.
 
-## Remember
-- Users work within selected domains
-- All API routes require JWT auth
-- SOP is the source of truth for AI context
-- Read analysis files for implementation details
-- Fix double refresh issue first (quick win)
-- Then implement OAuth-ready auth (better UX)
+## AI Context Management
 
-## Recent Changes (January 2025)
+The system passes complete SOP context to AI through system prompts built from UserTask snapshots:
+- Standard Operating Procedures with decision points
+- Compliance requirements and regulations
+- Required parameters with validation rules
+- Domain-specific customizations
 
-### User-Initiated Post Assignment
-- Removed ALL automatic post assignments (including identity verification)
-- Users must click posts to assign them
-- Shows "Assign" badge on unassigned posts
-- Master posts API now includes universal posts (domain='all')
+AI models supported:
+- Gemini 1.5 Flash (default)
+- GPT-4o-mini
+- Claude models (future)
 
-### Process Detail Page
-- New intermediate page at `/process/[processId]`
-- Shows process intro, description, and metadata
-- Verification check before allowing process start
-- Locked message if identity verification required
+## State Persistence Patterns
 
-### Variable Naming Cleanup
-- Renamed `posts` → `userPosts` (assigned posts)
-- Renamed `masterPosts` → `unassignedPosts` (not yet assigned)
-- Matches database collection naming convention
+User state persists via:
+1. MongoDB user document
+2. JWT tokens (access + refresh)
+3. localStorage for current domain/user data
+4. Refresh token rotation on API calls
 
-### Tailwind Fix
-- Added missing `spin` animation to tailwind.config.ts
-- Fixes non-spinning loader issue
+Task state flows through:
+1. Domain adoption creates immutable DomainTask snapshot
+2. User assignment creates immutable UserTask snapshot  
+3. Execution uses only UserTask data (no upstream fetches)
 
-### Identity Verification Fix (CRITICAL - January 2025)
-- **Problem**: User verification was using flat `user.isVerified` instead of nested `user.identity.isVerified`
-- **Solution**: Updated entire codebase to use `user.identity.isVerified`
-- **Files Updated**:
-  - Auth context: Uses nested identity object
-  - Home page: Checks `user?.identity?.isVerified`
-  - Process detail page: Checks `user?.identity?.isVerified`
-  - Chat interface: Only updates verification for identity posts
-  - Post journey service: Updates `identity.isVerified` in MongoDB
-  - Debug popup: Shows correct nested structure
-- **Persistence**: Verification status now properly persists like domains and currentDomainId
+## Critical Implementation Notes
 
-### Chat Interface Enhancements (January 2025)
-
-#### Real-time Token & Cost Tracking
-- **LLM Provider Chip**: Shows "Gemini 1.5 Flash" 
-- **Token Count Chip**: Displays "Usage" when 0, otherwise shows animated count
-- **Cost Chip**: Shows cost with 2 decimal places, animated updates
-- **Technical Debt**: 
-  - Token counts are estimated (word count * 1.3)
-  - Pricing is hardcoded ($0.15/1M input, $0.60/1M output tokens)
-  - Should use Gemini API's `usageMetadata` for accurate counts
-  - LLM provider should be configurable per process
-
-#### Simplified Identity Verification
-- **Direct Handling**: Submit button on ID verification directly updates user state
-- **No Chat Stream**: Identity verification completes without sending to chat API
-- **Immediate Redirect**: Shows success message and redirects home after 2 seconds
-- **ProcessID Support**: Other processes send `[ProcessID: ${processId}]` to chat
-
-#### Fixed Infinite Loop Issue
-- **Problem**: `SmartMessageDisplay` had `onDataExtract` in useEffect dependencies
-- **Solution**: Removed from dependencies, memoized callback functions
-- **Result**: Artifact displays properly without "Maximum update depth exceeded" error
-
-#### SOP Popup Copy Button
-- **Added Copy Functionality**: Formats entire SOP as readable text
-- **Visual Feedback**: Shows green checkmark for 2 seconds after copying
-- **Consistent Pattern**: Follows same UI pattern as other popup copy buttons
+1. **No Dynamic Fetching**: TaskExecutions must NEVER fetch from MasterTask/DomainTask
+2. **Snapshot Completeness**: Each level must copy ALL data needed for execution
+3. **User Verification**: Always check `user.identity.isVerified` (nested structure)
+4. **QMS Compliance**: New tasks require `isQMSCompliant: true` flag
+5. **Error Handling**: Non-compliant UserTasks return "not configured for execution" error

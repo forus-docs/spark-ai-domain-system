@@ -38,7 +38,7 @@ interface ChatInterfaceProps {
   onClose: () => void;
   accessToken?: string;
   chatId?: string;
-  conversationId?: string;
+  executionId?: string;
 }
 
 export function ChatInterfaceV3({ 
@@ -48,7 +48,7 @@ export function ChatInterfaceV3({
   onClose,
   accessToken,
   chatId,
-  conversationId: propConversationId 
+  executionId: propConversationId 
 }: ChatInterfaceProps) {
   const { updateChatActivity } = useChat();
   const { currentDomain } = useDomain();
@@ -64,7 +64,7 @@ export function ChatInterfaceV3({
   
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoadingMessages, setIsLoadingMessages] = useState(!!propConversationId);
-  const [conversationId, setConversationId] = useState<string | null>(
+  const [executionId, setConversationId] = useState<string | null>(
     propConversationId || (chatId && !chatId.startsWith('temp-') ? chatId : null)
   );
   const [input, setInput] = useState('');
@@ -74,7 +74,7 @@ export function ChatInterfaceV3({
   const sseRef = useRef<SSE | null>(null);
 
   // Use conversation ID for file context
-  const contextId = conversationId || chatId || 'temp';
+  const contextId = executionId || chatId || 'temp';
   const attachedFiles = getFiles(contextId);
 
   // File upload hook
@@ -108,7 +108,7 @@ export function ChatInterfaceV3({
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  // Load existing messages if conversationId is provided
+  // Load existing messages if executionId is provided
   useEffect(() => {
     if (propConversationId) {
       const loadMessages = async () => {
@@ -315,7 +315,7 @@ export function ChatInterfaceV3({
           processName,
           executionModel,
           domainId: currentDomain?.id,
-          conversationId: conversationId || undefined,
+          executionId: executionId || undefined,
         }),
         method: 'POST',
       });
@@ -326,10 +326,10 @@ export function ChatInterfaceV3({
       eventSource.addEventListener('message', (event: any) => {
         const data = JSON.parse(event.data);
         
-        if (data.conversationId && !conversationId) {
-          setConversationId(data.conversationId);
+        if (data.executionId && !executionId) {
+          setConversationId(data.executionId);
           if (chatId) {
-            updateChatActivity(chatId, data.conversationId, data.title || processName);
+            updateChatActivity(chatId, data.executionId, data.title || processName);
           }
         }
         
@@ -377,7 +377,7 @@ export function ChatInterfaceV3({
       ));
       setIsStreaming(false);
     }
-  }, [input, attachedFiles, isStreaming, messages, accessToken, executionModel, processId, chatId, conversationId, currentDomain?.id, processName, updateChatActivity, uploadFile, contextId, clearFiles]);
+  }, [input, attachedFiles, isStreaming, messages, accessToken, executionModel, processId, chatId, executionId, currentDomain?.id, processName, updateChatActivity, uploadFile, contextId, clearFiles]);
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-white">
@@ -388,7 +388,7 @@ export function ChatInterfaceV3({
             <h2 className="text-lg font-medium text-gray-900">{processName}</h2>
             <p className="text-sm text-gray-600">{executionModel}</p>
           </div>
-          {conversationId && (
+          {executionId && (
             <button
               onClick={() => setShowInfoPopup(true)}
               className="p-2 hover:bg-gray-100 rounded-md transition-colors"
@@ -590,9 +590,9 @@ export function ChatInterfaceV3({
       </div>
 
       {/* Info Popup */}
-      {showInfoPopup && conversationId && (
+      {showInfoPopup && executionId && (
         <ConversationInfoPopup
-          conversationId={conversationId}
+          executionId={executionId}
           accessToken={accessToken}
           onClose={() => setShowInfoPopup(false)}
         />

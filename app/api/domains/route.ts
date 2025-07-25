@@ -25,7 +25,8 @@ export async function GET() {
 
     // Transform MongoDB documents to match frontend expectations
     const transformedDomains = domains.map(domain => ({
-      id: domain.domainId,
+      id: domain._id.toString(),
+      slug: domain.domainId, // Keep the string identifier as slug for reference
       icon: domain.icon,
       name: domain.name,
       tagline: domain.tagline || '', // Add if missing

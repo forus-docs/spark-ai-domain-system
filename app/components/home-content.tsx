@@ -151,8 +151,8 @@ export default function HomeContent() {
       {selectedProcess && (
         user && accessToken ? (
           <ChatInterfaceV2
-            processName={selectedProcess.name}
-            processId={selectedProcess.id}
+            masterTaskName={selectedProcess.name}
+            masterTaskId={selectedProcess.id}
             executionModel={selectedProcess.executionModel}
             onClose={handleCloseChat}
             accessToken={accessToken}

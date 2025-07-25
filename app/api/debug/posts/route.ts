@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/app/lib/database';
-import UserPost from '@/app/models/UserPost';
+import UserPost from '@/app/models/UserTask';
 import User from '@/app/models/User';
 import jwt from 'jsonwebtoken';
 

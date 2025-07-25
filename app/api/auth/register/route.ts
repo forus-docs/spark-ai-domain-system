@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/app/lib/database';
 import User from '@/app/models/User';
 import { generateTokens } from '@/app/lib/auth/jwt';
-import { PostJourneyService } from '@/app/lib/services/post-journey.service';
+import { TaskJourneyService } from '@/app/lib/services/task-journey.service';
 
 export const dynamic = 'force-dynamic';
 
@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
     await user.save();
 
     // Initialize user posts (identity verification)
-    await PostJourneyService.initializeUserPosts(user._id.toString());
+    await TaskJourneyService.initializeUserTasks(user._id.toString());
 
     // Generate tokens
     const { accessToken, refreshToken } = generateTokens(user);

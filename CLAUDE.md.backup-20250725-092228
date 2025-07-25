@@ -1,0 +1,227 @@
+# CLAUDE.md - Forus Spark Project
+
+This file provides guidance to Claude Code when working on the Spark AI Domain System.
+
+## Project Overview
+
+Multi-role, multi-domain enterprise platform using:
+- Next.js 14+ App Router, TypeScript, Tailwind CSS
+- MongoDB with JWT auth and SSE streaming
+- QMS-compliant immutable snapshot architecture
+- Port 3001
+
+## CRITICAL: QMS-Compliant Architecture
+
+### Immutable Snapshot Principle
+For Quality Management System (QMS) compliance, data flows through COMPLETE COPIES, not references:
+
+```
+MasterTask → DomainTask → UserTask → TaskExecution
+(template)   (domain copy)  (user copy)   (execution)
+```
+
+**Key Benefits:**
+- ✅ Domains approve changes before they affect users
+- ✅ Running tasks cannot change mid-execution
+- ✅ Complete audit trail for compliance
+- ✅ Simpler - all data in one place
+
+**NEVER:**
+- ❌ Fetch MasterTask data during execution
+- ❌ Use only references between collections
+- ❌ Allow changes to propagate automatically
+
+## Development Workflow
+
+### 1. Task Planning
+- Use TodoWrite tool for any non-trivial task
+- Break down complex work into specific items
+- Track progress with in_progress/completed states
+
+### 2. Code Changes
+```bash
+npm run lint                    # Check code quality
+mcp__ide__getDiagnostics       # Check for TypeScript errors
+npm run build                   # Build for production
+```
+
+### 3. Key Reminders
+- **NO COMMITS** unless explicitly asked
+- **Always lint** before building
+- **Check diagnostics** proactively
+- **One component per purpose** - no duplicates
+
+## Project Structure
+
+### Key Directories
+```
+/app                    # Next.js App Router pages and API routes
+  /api                  # API endpoints
+    /domain-tasks       # Task management endpoints
+    /task-executions    # Execution management
+    /auth              # Authentication endpoints
+  /components          # React components
+  /lib                 # Shared utilities
+  /models              # Mongoose models
+  /services            # Business logic services
+  /types               # TypeScript type definitions
+/scripts               # Database migration and maintenance
+/docs                  # Technical documentation
+```
+
+### Database Collections (MongoDB)
+- `users` - User accounts with nested identity structure
+- `domains` - Domain configurations
+- `masterTasks` - Enterprise-wide task templates with SOPs
+- `domainTasks` - Domain-adopted tasks with complete snapshots
+- `userTasks` - User assignments with execution data
+- `taskExecutions` - Active execution sessions
+- `executionMessages` - Chat messages within executions
+
+## Key Concepts
+
+### User-Initiated Task Assignment
+- NO automatic task assignment on registration or domain join
+- ALL tasks (including identity verification) must be clicked to assign
+- Users see unassigned tasks with "Assign" badge
+- Master tasks API includes both domain-specific and universal (domain='all') tasks
+
+### User Data Structure (CRITICAL)
+The user object has a **nested identity structure**:
+```javascript
+{
+  id: string,
+  email: string,
+  name: string,
+  currentDomainId: string,
+  domains: Array<{domainId, role, joinedAt}>,
+  identity: {
+    isVerified: boolean,      // ← CORRECT: identity.isVerified
+    verifiedAt?: Date,
+    verificationType?: string,
+    verificationLevel?: string
+  }
+}
+```
+
+**IMPORTANT**: Always use `user.identity.isVerified`, NOT `user.isVerified`
+
+### User Flow (Task Journey System)
+1. User registers/logs in → NO tasks auto-assigned
+2. Navigate to home → See ALL domain tasks as unassigned
+3. Click any task → Creates UserTask (full snapshot) → Immediately create TaskExecution → Navigate to chat
+4. Chat interface → Uses UserTask snapshot data → AI assists with execution
+5. Complete task → Update UserTask status → Trigger next tasks if configured
+
+### SOP Context (QMS Implementation)
+- SOP data is copied at each level (Master→Domain→User)
+- UserTask contains complete SOP snapshot at assignment time
+- TaskExecution uses UserTask's SOP snapshot (never fetches from MasterTask)
+- Includes: objectives, scope, procedures, roles, compliance, decision points
+- Ensures AI uses exact procedure version user was assigned
+
+## Environment Setup
+
+### Required Environment Variables (.env.local)
+```env
+MONGODB_URI=mongodb://localhost:27017/spark-ai
+JWT_SECRET=your-super-secret-jwt-key
+JWT_REFRESH_SECRET=your-super-secret-refresh-jwt-key
+SESSION_SECRET=your-session-secret
+CREDS_KEY=your-32-character-encryption-key
+CREDS_IV=your-16-character-iv
+OPENAI_API_KEY=your-openai-api-key
+```
+
+### MongoDB Operations
+```bash
+# Start MongoDB
+mongod --dbpath ~/data/db --port 27017
+
+# MongoDB Compass
+mongodb://localhost:27017/spark-ai
+```
+
+### Development Commands
+```bash
+npm run dev        # Port 3001
+npm run build      # Production build
+npm run lint       # ESLint
+```
+
+## API Endpoints
+
+### Domain Task Management
+- `POST /api/domains/[domainId]/adopt-task` - Adopt MasterTask with full snapshot
+- `GET /api/domains/[domainId]/adopt-task` - List available tasks
+
+### User Task Management  
+- `GET /api/domain-tasks` - Get tasks (assigned and unassigned)
+- `POST /api/domain-tasks/assign` - Self-assign a task
+- `POST /api/domain-tasks/[taskId]/task-execution` - Create execution
+
+### Task Execution
+- `GET /api/task-executions` - List executions
+- `POST /api/chat/stream` - Stream AI responses
+
+## Technical Documentation
+
+### Architecture & Flow
+- `PROJECT_STRUCTURE_ANALYSIS.md` - Complete system architecture
+- `USER_FLOW_DIAGRAM.md` - Visual user journeys
+- `docs/QMS_API_DOCUMENTATION.md` - QMS compliance guide
+
+### Implementation Status
+- `TECHNICAL_DEBT_REGISTER.md` - Known issues
+- `REFACTORING_NAMING_STRATEGY.md` - Completed naming refactoring
+- `REFACTORING_VISUAL_GUIDE.md` - Visual naming guide
+
+## Critical Paths
+
+### Auth Flow
+Register/Login → JWT → Domain Selection → Home
+
+### Task-to-Chat Flow
+1. Click Task → Assign if needed (creates UserTask with full snapshot)
+2. Create TaskExecution immediately
+3. Navigate to chat with SSE streaming
+4. AI uses ONLY UserTask snapshot data
+
+## MongoDB MCP Configuration
+
+MongoDB MCP is configured globally in `~/.claude/.mcp.json`
+- Default: `mongodb://localhost:27017`
+- Project-specific: Set `MDB_CONNECTION_STRING` environment variable
+- Tools available after Claude Code restart
+
+## Forus Principles
+
+**"We don't charge for tools. We share in the value you create when risk is removed."**
+
+### Language Guidelines
+- ❌ "Revenue" → ✅ "Value"
+- ❌ "Fees" → ✅ "Value Sharing"
+- ❌ "Profit" → ✅ "Value Creation"
+- ❌ "Customer" → ✅ "Network Participant"
+
+### Architecture Principles
+1. Domain → Holon transformation
+2. Value creation, not revenue extraction
+3. Network effects as the product
+4. Free tools that derisk
+
+## Quick References
+
+- **Debugging**: Use `mcp__ide__getDiagnostics` for errors
+- **MongoDB**: Use `mcp__mongodb__*` tools after restart
+- **Components**: Import from `@forus/ui` when available
+- **Auth**: Wrap app with `AuthProvider` from context
+
+## Important Notes
+
+1. **Refactoring Complete**: The Process→Task naming refactoring has been completed
+2. **QMS Compliance**: All new tasks must use immutable snapshots
+3. **No Dynamic Fetching**: TaskExecutions use ONLY UserTask data
+4. **User Verification**: Always check `user.identity.isVerified`
+
+Remember: This is a QMS-compliant system. Always maintain data immutability and complete audit trails.

@@ -27,35 +27,35 @@ interface Message {
 }
 
 interface ChatInterfaceProps {
-  processName: string;
-  processId?: string;
+  masterTaskName: string;
+  masterTaskId?: string;
   executionModel?: string;
   onClose: () => void;
   accessToken?: string;
   chatId?: string; // For existing conversations
-  conversationId?: string; // For loading existing conversations
-  userPostId?: string; // For linking to UserPost
+  executionId?: string; // For loading existing task executions
+  userTaskId?: string; // For linking to UserTask
 }
 
 export function ChatInterfaceV2({ 
-  processName, 
-  processId,
+  masterTaskName, 
+  masterTaskId,
   executionModel, 
   onClose,
   accessToken,
   chatId,
-  conversationId: propConversationId,
-  userPostId 
+  executionId: propExecutionId,
+  userTaskId 
 }: ChatInterfaceProps) {
   const router = useRouter();
   const { updateChatActivity } = useChat();
   const { currentDomain } = useDomain();
   const { setUserVerified } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
-  const [isLoadingMessages, setIsLoadingMessages] = useState(!!propConversationId);
-  // Use prop conversationId if provided, otherwise fall back to chatId
-  const [conversationId, setConversationId] = useState<string | null>(
-    propConversationId || (chatId && !chatId.startsWith('temp-') ? chatId : null)
+  const [isLoadingMessages, setIsLoadingMessages] = useState(!!propExecutionId);
+  // Use prop executionId if provided, otherwise fall back to chatId
+  const [executionId, setExecutionId] = useState<string | null>(
+    propExecutionId || (chatId && !chatId.startsWith('temp-') ? chatId : null)
   );
   const [input, setInput] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
@@ -86,9 +86,9 @@ export function ChatInterfaceV2({
     };
   }, []);
 
-  // Load existing messages if conversationId is provided
+  // Load existing messages if executionId is provided
   useEffect(() => {
-    if (propConversationId) {
+    if (propExecutionId) {
       const loadMessages = async () => {
         try {
           setIsLoadingMessages(true);
@@ -99,7 +99,7 @@ export function ChatInterfaceV2({
             headers['Authorization'] = `Bearer ${accessToken}`;
           }
           
-          const response = await fetch(`/api/conversations/${propConversationId}/messages`, {
+          const response = await fetch(`/api/task-executions/${propExecutionId}/messages`, {
             headers,
           });
           
@@ -154,7 +154,7 @@ export function ChatInterfaceV2({
           setMessages([{
             id: '1',
             role: 'assistant',
-            content: `Welcome back! I'll help you continue with the "${processName}" process. How can I assist you?`,
+            content: `Welcome back! I'll help you continue with the "${masterTaskName}" task. How can I assist you?`,
             timestamp: new Date(),
           }]);
         } finally {
@@ -168,11 +168,11 @@ export function ChatInterfaceV2({
       setMessages([{
         id: '1',
         role: 'assistant',
-        content: `Welcome! I'll help you with the "${processName}" process.${executionModel ? ` This is a ${executionModel} workflow.` : ''} How can I assist you today?`,
+        content: `Welcome! I'll help you with the "${masterTaskName}" task.${executionModel ? ` This is a ${executionModel} workflow.` : ''} How can I assist you today?`,
         timestamp: new Date(),
       }]);
     }
-  }, [propConversationId, processName, executionModel, accessToken]);
+  }, [propExecutionId, masterTaskName, executionModel, accessToken]);
 
   useEffect(() => {
     scrollToBottom();
@@ -180,11 +180,11 @@ export function ChatInterfaceV2({
 
   // Fetch process data for required parameters
   useEffect(() => {
-    const fetchProcessData = async () => {
-      if (!processId || !accessToken) return;
+    const fetchMasterTaskData = async () => {
+      if (!masterTaskId || !accessToken) return;
       
       try {
-        const response = await fetch(`/api/processes/${processId}`, {
+        const response = await fetch(`/api/master-tasks/${masterTaskId}`, {
           headers: {
             'Authorization': `Bearer ${accessToken}`
           }
@@ -199,8 +199,8 @@ export function ChatInterfaceV2({
       }
     };
     
-    fetchProcessData();
-  }, [processId, accessToken]);
+    fetchMasterTaskData();
+  }, [masterTaskId, accessToken]);
 
   // Cleanup SSE on unmount
   useEffect(() => {
@@ -239,14 +239,14 @@ export function ChatInterfaceV2({
 
   const handleArtifactInteract = useCallback(async (action: string, data?: any) => {
     console.log('Artifact interaction:', action, data);
-    console.log('ProcessId:', processId);
+    console.log('MasterTaskId:', masterTaskId);
     
     if (action === 'submit') {
       // Don't proceed if already streaming
       if (isStreaming) return;
       
       // Check if this is identity verification
-      if (processId === 'identity-verification') {
+      if (masterTaskId === 'identity-verification') {
         console.log('Identity verification completed, updating user status');
         
         // Update user verification status
@@ -269,8 +269,8 @@ export function ChatInterfaceV2({
         return; // Exit early, no need to send to chat stream
       }
       
-      // For other processes, send the ProcessID to chat stream
-      const confirmationMessage = `Process completed. [ProcessID: ${processId}]`;
+      // For other tasks, send the MasterTaskID to chat stream
+      const confirmationMessage = `Task completed. [MasterTaskID: ${masterTaskId}]`;
       
       // Create user message
       const userMessage: Message = {
@@ -315,11 +315,11 @@ export function ChatInterfaceV2({
           headers,
           payload: JSON.stringify({
             messages: messagesToSend,
-            processId,
-            processName,
+            processId: masterTaskId,
+            processName: masterTaskName,
             executionModel,
             domainId: currentDomain?.id,
-            conversationId: conversationId || undefined,
+            executionId: executionId || undefined,
           }),
           method: 'POST',
         });
@@ -330,10 +330,10 @@ export function ChatInterfaceV2({
         eventSource.addEventListener('message', (event: any) => {
           const data = JSON.parse(event.data);
           
-          if (data.conversationId && !conversationId) {
-            setConversationId(data.conversationId);
+          if (data.executionId && !executionId) {
+            setExecutionId(data.executionId);
             if (chatId) {
-              updateChatActivity(chatId, data.conversationId, data.title || processName);
+              updateChatActivity(chatId, data.executionId, data.title || masterTaskName);
             }
           }
           
@@ -402,7 +402,7 @@ export function ChatInterfaceV2({
         setIsStreaming(false);
       }
     }
-  }, [isStreaming, userPostId, messages, accessToken, processId, processName, executionModel, currentDomain?.id, conversationId, updateChatActivity, chatId, router, setUserVerified]);
+  }, [isStreaming, userTaskId, messages, accessToken, masterTaskId, masterTaskName, executionModel, currentDomain?.id, executionId, updateChatActivity, chatId, router, setUserVerified]);
 
   const handleSend = useCallback(async () => {
     if ((!input.trim() && attachedFiles.length === 0) || isStreaming) return;
@@ -495,11 +495,11 @@ export function ChatInterfaceV2({
         headers,
         payload: JSON.stringify({
           messages: messagesToSend,
-          processId,
-          processName,
+          processId: masterTaskId,
+          processName: masterTaskName,
           executionModel,
           domainId: currentDomain?.id,
-          conversationId: conversationId || undefined,
+          executionId: executionId || undefined,
         }),
         method: 'POST',
       });
@@ -511,11 +511,11 @@ export function ChatInterfaceV2({
         const data = JSON.parse(event.data);
         
         // Handle conversation creation response
-        if (data.conversationId && !conversationId) {
-          setConversationId(data.conversationId);
+        if (data.executionId && !executionId) {
+          setExecutionId(data.executionId);
           // Update chat context with real conversation ID
           if (chatId) {
-            updateChatActivity(chatId, data.conversationId, data.title || processName);
+            updateChatActivity(chatId, data.executionId, data.title || masterTaskName);
           }
         }
         
@@ -585,7 +585,7 @@ export function ChatInterfaceV2({
       ));
       setIsStreaming(false);
     }
-  }, [input, attachedFiles, isStreaming, messages, accessToken, executionModel, processId, chatId, conversationId, currentDomain?.id, processName, updateChatActivity, router, setUserVerified]);
+  }, [input, attachedFiles, isStreaming, messages, accessToken, executionModel, masterTaskId, chatId, executionId, currentDomain?.id, masterTaskName, updateChatActivity, router, setUserVerified]);
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-white overflow-hidden">
@@ -593,10 +593,10 @@ export function ChatInterfaceV2({
       <div className="p-4 border-b border-gray-200 bg-white">
         {/* First line: Title and icons */}
         <div className="flex items-center justify-between mb-2">
-          <h2 className="text-lg font-medium text-gray-900">{processName}</h2>
+          <h2 className="text-lg font-medium text-gray-900">{masterTaskName}</h2>
           
           <div className="flex items-center gap-1">
-            {conversationId && (
+            {executionId && (
               <>
                 <button
                   onClick={() => setShowSopPopup(true)}
@@ -777,18 +777,18 @@ export function ChatInterfaceV2({
       </div>
 
       {/* Info Popup */}
-      {showInfoPopup && conversationId && (
+      {showInfoPopup && executionId && (
         <ConversationInfoPopup
-          conversationId={conversationId}
+          executionId={executionId}
           accessToken={accessToken}
           onClose={() => setShowInfoPopup(false)}
         />
       )}
 
       {/* SOP Popup */}
-      {showSopPopup && conversationId && (
+      {showSopPopup && executionId && (
         <SopPopup
-          conversationId={conversationId}
+          executionId={executionId}
           accessToken={accessToken}
           onClose={() => setShowSopPopup(false)}
         />

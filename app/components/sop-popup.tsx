@@ -2,10 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import { X, FileText, Target, Users, ClipboardList, ShieldCheck, AlertTriangle, GitBranch, Loader2, Copy, Check } from 'lucide-react';
-import { IStandardOperatingProcedure } from '@/app/models/Process';
+import { IStandardOperatingProcedure } from '@/app/models/MasterTask';
 
 interface SopPopupProps {
-  conversationId: string;
+  executionId: string;
   accessToken?: string;
   onClose: () => void;
 }
@@ -16,7 +16,7 @@ interface ProcessInfo {
   standardOperatingProcedure?: IStandardOperatingProcedure;
 }
 
-export function SopPopup({ conversationId, accessToken, onClose }: SopPopupProps) {
+export function SopPopup({ executionId, accessToken, onClose }: SopPopupProps) {
   const [processInfo, setProcessInfo] = useState<ProcessInfo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -25,29 +25,29 @@ export function SopPopup({ conversationId, accessToken, onClose }: SopPopupProps
   useEffect(() => {
     const fetchProcessInfo = async () => {
       try {
-        // First get conversation info to get processId
+        // First get taskExecution info to get processId
         const headers: Record<string, string> = {};
         if (accessToken) {
           headers['Authorization'] = `Bearer ${accessToken}`;
         }
 
-        const conversationResponse = await fetch(`/api/conversations/${conversationId}/info`, {
+        const taskExecutionResponse = await fetch(`/api/task-executions/${executionId}/info`, {
           headers,
         });
 
-        if (!conversationResponse.ok) {
-          throw new Error('Failed to fetch conversation info');
+        if (!taskExecutionResponse.ok) {
+          throw new Error('Failed to fetch taskExecution info');
         }
 
-        const conversationData = await conversationResponse.json();
+        const taskExecutionData = await taskExecutionResponse.json();
         
-        if (!conversationData.conversation?.processId) {
-          setError('No process associated with this conversation');
+        if (!taskExecutionData.taskExecution?.processId) {
+          setError('No process associated with this taskExecution');
           return;
         }
 
         // Then fetch process details
-        const processResponse = await fetch(`/api/processes/${conversationData.conversation.processId}`, {
+        const processResponse = await fetch(`/api/master-tasks/${taskExecutionData.taskExecution.masterTaskId}`, {
           headers,
         });
 
@@ -76,7 +76,7 @@ export function SopPopup({ conversationId, accessToken, onClose }: SopPopupProps
     };
 
     fetchProcessInfo();
-  }, [conversationId, accessToken]);
+  }, [executionId, accessToken]);
 
   const sop = processInfo?.standardOperatingProcedure;
 
