@@ -261,7 +261,7 @@ function HomePage() {
         window.open(action.target, '_blank');
         break;
       case 'process':
-        // This should not happen if processId exists, but keep as fallback
+        // This should not happen if masterTaskId exists, but keep as fallback
         router.push(`/process/${action.target}`);
         break;
       // TODO: Handle modal type

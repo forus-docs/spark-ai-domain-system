@@ -11,15 +11,13 @@ npm run build        # Build for production
 npm run lint         # Run ESLint
 npm run typecheck    # TypeScript type checking
 
-# Database Management
-npm run migrate:all  # Run all database migrations
-npm run seed:posts   # Seed initial posts data
-npm run migrate:sop  # Migrate SOP structures
+# Testing single files
+tsx scripts/[filename].ts  # Run individual TypeScript scripts
 
-# QMS Migration Scripts
-node scripts/migrate-to-qms-compliant.js     # Create QMS-compliant tasks
-node scripts/cleanup-non-compliant-tasks.js  # Remove old non-compliant data
-node scripts/investigate-data-flow.js        # Analyze data compliance
+# Database Scripts (in package.json but many deprecated)
+npm run migrate:all  # Run all database migrations
+npm run seed:posts   # Seed initial posts data (deprecated)
+npm run migrate:sop  # Migrate SOP structures
 ```
 
 ## Architecture Overview
@@ -81,6 +79,16 @@ user.identity.verificationType
 - UserTask contains `taskSnapshot.executionData` with ALL execution fields
 - TaskExecution uses ONLY UserTask snapshot data
 
+**Reward Field Handling:**
+```typescript
+// In UserTask creation, reward must be plain object or null
+reward: domainTask.reward ? {
+  amount: domainTask.reward.amount,
+  currency: domainTask.reward.currency,
+  displayText: domainTask.reward.displayText
+} : null
+```
+
 ## Environment Configuration
 
 Required `.env.local` variables:
@@ -92,6 +100,7 @@ SESSION_SECRET=<32+ character secret>
 CREDS_KEY=<32 character encryption key>
 CREDS_IV=<16 character IV>
 OPENAI_API_KEY=<OpenAI API key>
+GEMINI_API_KEY=<Google Gemini API key>
 ```
 
 ## MongoDB Setup
@@ -106,6 +115,10 @@ Collections (post-refactoring):
 - `userTasks` - User assignments with execution data
 - `taskExecutions` - Active execution sessions
 - `executionMessages` - Chat messages
+
+### Critical Indexes
+- Remove any legacy `conversationId` indexes from taskExecutions
+- UserTask has compound index on `userId` + `domainTaskId`
 
 ## API Integration Points
 
@@ -140,6 +153,11 @@ AI models supported:
 - GPT-4o-mini
 - Claude models (future)
 
+**Intro Message Handling:**
+- Intro is injected as first ExecutionMessage in chat stream
+- No popup functionality - intro appears in message history
+- Created with `role: 'assistant'` and user's ID
+
 ## State Persistence Patterns
 
 User state persists via:
@@ -160,3 +178,33 @@ Task state flows through:
 3. **User Verification**: Always check `user.identity.isVerified` (nested structure)
 4. **QMS Compliance**: New tasks require `isQMSCompliant: true` flag
 5. **Error Handling**: Non-compliant UserTasks return "not configured for execution" error
+6. **Domain IDs**: Use ObjectID, not string identifiers for domains
+7. **Execution Model**: All MasterTasks currently use `executionModel: 'sop'`
+8. **No currentStage**: This field was removed - not persisted in the application
+
+## Common Pitfalls & Solutions
+
+### Mongoose Document vs Plain Object
+When copying data between collections, convert Mongoose subdocuments to plain objects:
+```typescript
+// Wrong - causes "Cast to Embedded failed" errors
+reward: domainTask.reward
+
+// Correct
+reward: domainTask.reward ? {
+  amount: domainTask.reward.amount,
+  currency: domainTask.reward.currency,
+  displayText: domainTask.reward.displayText
+} : null
+```
+
+### Task Click Flow
+1. User clicks unassigned task → assign it first
+2. User clicks assigned task → create TaskExecution
+3. TaskExecution creation → inject intro as first message
+4. Navigate to `/chat/[executionId]`
+
+### MongoDB MCP Integration
+- Configured in `~/.claude/.mcp.json`
+- Tools available with prefix `mcp__mongodb__`
+- Use for direct database queries and updates

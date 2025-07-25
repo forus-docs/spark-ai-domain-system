@@ -75,7 +75,6 @@ export async function POST(request: NextRequest, context: RouteContext) {
     const masterTask = await MasterTask.findOne({ 
       $or: [
         { masterTaskId: masterTaskId },
-        { processId: masterTaskId },
         { _id: masterTaskId }
       ]
     });
@@ -87,7 +86,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     // Check if task is already adopted by this domain
     const existingDomainTask = await DomainTask.findOne({
       domain: domainId,
-      masterTaskId: masterTask.masterTaskId || masterTask.processId || masterTask._id.toString(),
+      masterTaskId: masterTask._id.toString(),
       isQMSCompliant: true
     });
 
@@ -121,9 +120,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
       taskType: taskType,
       
       // References (for audit trail)
-      masterTaskId: masterTask.masterTaskId || masterTask.processId || masterTask._id.toString(),
+      masterTaskId: masterTask._id.toString(),
       masterTaskVersion: masterTask.standardOperatingProcedure?.metadata?.version || '1.0.0',
-      originalMasterTaskId: masterTask.masterTaskId || masterTask.processId || masterTask._id.toString(),
+      originalMasterTaskId: masterTask._id.toString(),
       
       // Complete MasterTask snapshot (QMS Compliant)
       masterTaskSnapshot: {
@@ -274,7 +273,7 @@ function generateDisplayConfig(masterTask: any) {
     ctaText: ctaTextMapping[masterTask.executionModel] || 'Start',
     ctaAction: {
       type: 'process',
-      target: masterTask.masterTaskId || masterTask.processId || masterTask._id.toString(),
+      target: masterTask._id.toString(),
       params: {}
     }
   };
@@ -324,11 +323,11 @@ export async function GET(request: NextRequest, context: RouteContext) {
     // Filter out already adopted tasks and format response
     const availableTasks = masterTasks
       .filter(task => {
-        const taskId = task.masterTaskId || task.processId || task._id.toString();
+        const taskId = task._id.toString();
         return !adoptedMasterTaskIds.has(taskId);
       })
       .map(task => ({
-        id: task.masterTaskId || task.processId || task._id.toString(),
+        id: task._id.toString(),
         name: task.name,
         description: task.description,
         category: task.category,

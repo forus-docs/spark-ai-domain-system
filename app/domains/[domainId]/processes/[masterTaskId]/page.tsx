@@ -64,19 +64,19 @@ export default function ProcessDetailPage() {
   
   const [activeChat, setActiveChat] = useState<{
     processName: string;
-    processId: string;
+    masterTaskId: string;
     executionModel: string;
     chatId?: string;
   } | null>(null);
 
   const domainId = params.domainId as string;
-  const processId = params.processId as string;
+  const masterTaskId = params.masterTaskId as string;
   const startChat = searchParams.get('startChat');
   const chatId = searchParams.get('chatId');
 
   // Find the process
   const processes = processMap[domainId] || [];
-  const process = processes.find(p => p.id === processId);
+  const process = processes.find(p => p.id === masterTaskId);
 
   // Auto-start chat if URL parameter is present
   useEffect(() => {
@@ -85,7 +85,7 @@ export default function ProcessDetailPage() {
         // Opening existing chat from recent items
         setActiveChat({
           processName: process.name,
-          processId: process.id,
+          masterTaskId: process.id,
           executionModel: process.executionModel,
           chatId: chatId,
         });
@@ -94,14 +94,14 @@ export default function ProcessDetailPage() {
         const newChat = addChat({
           domainId: currentDomain?.id || domainId,
           processName: process.name,
-          processId: process.id,
+          masterTaskId: process.id,
           executionModel: process.executionModel,
         });
         
         // Open chat interface
         setActiveChat({
           processName: process.name,
-          processId: process.id,
+          masterTaskId: process.id,
           executionModel: process.executionModel,
           chatId: newChat.id,
         });
@@ -133,14 +133,14 @@ export default function ProcessDetailPage() {
     const newChat = addChat({
       domainId: currentDomain?.id || domainId,
       processName: process.name,
-      processId: process.id,
+      masterTaskId: process.id,
       executionModel: process.executionModel,
     });
     
     // Open chat interface
     setActiveChat({
       processName: process.name,
-      processId: process.id,
+      masterTaskId: process.id,
       executionModel: process.executionModel,
       chatId: newChat.id,
     });
@@ -281,7 +281,7 @@ export default function ProcessDetailPage() {
       {activeChat && (
         <ChatInterfaceV2
           masterTaskName={activeChat.processName}
-          masterTaskId={activeChat.processId}
+          masterTaskId={activeChat.masterTaskId}
           executionModel={activeChat.executionModel}
           onClose={() => setActiveChat(null)}
           accessToken={accessToken || undefined}

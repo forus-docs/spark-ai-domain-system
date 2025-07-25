@@ -315,7 +315,7 @@ export function ChatInterfaceV2({
           headers,
           payload: JSON.stringify({
             messages: messagesToSend,
-            processId: masterTaskId,
+            masterTaskId: masterTaskId,
             processName: masterTaskName,
             executionModel,
             domainId: currentDomain?.id,
@@ -495,7 +495,7 @@ export function ChatInterfaceV2({
         headers,
         payload: JSON.stringify({
           messages: messagesToSend,
-          processId: masterTaskId,
+          masterTaskId: masterTaskId,
           processName: masterTaskName,
           executionModel,
           domainId: currentDomain?.id,

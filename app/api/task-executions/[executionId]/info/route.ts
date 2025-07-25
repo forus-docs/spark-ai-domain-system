@@ -4,7 +4,7 @@ import { connectToDatabase } from '@/app/lib/database';
 import TaskExecution from '@/app/models/TaskExecution';
 import UserPost from '@/app/models/UserTask';
 import Post from '@/app/models/DomainTask';
-import Process from '@/app/models/MasterTask';
+import MasterTask from '@/app/models/MasterTask';
 
 export const dynamic = 'force-dynamic';
 
@@ -86,10 +86,15 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
     // Get MasterTask information if available
     if (taskExecution.masterTaskId) {
-      const masterTask = await Process.findOne({ processId: taskExecution.masterTaskId });
+      const masterTask = await MasterTask.findOne({ 
+        $or: [
+          { masterTaskId: taskExecution.masterTaskId },
+          { _id: taskExecution.masterTaskId }
+        ]
+      });
       if (masterTask) {
         response.masterTask = {
-          processId: masterTask.processId,
+          masterTaskId: masterTask.masterTaskId || masterTask._id.toString(),
           name: masterTask.name,
           description: masterTask.description,
           category: masterTask.category,

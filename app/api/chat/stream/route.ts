@@ -4,7 +4,7 @@ import { streamGeminiResponse, ChatMessage } from '@/app/lib/ai/gemini-client';
 import { TaskExecutionService, ExecutionMessageService } from '@/app/services/task-executions';
 import { connectToDatabase } from '@/app/lib/database';
 import { generateSystemPrompt, enhanceUserMessage, ProcessContext } from '@/app/lib/ai-prompts';
-import Process from '@/app/models/MasterTask';
+import MasterTask from '@/app/models/MasterTask';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -30,12 +30,12 @@ export async function POST(request: NextRequest) {
     return new Response('Invalid token', { status: 401 });
   }
 
-  const { messages, processId, processContext, systemPrompt, executionId, domainId, processName, executionModel } = await request.json();
+  const { messages, masterTaskId, processContext, systemPrompt, executionId, domainId, processName, executionModel } = await request.json();
 
   console.log('Chat stream request:', {
     userId,
     messagesCount: messages?.length,
-    processId,
+    masterTaskId,
     domainId,
     executionId,
     hasProcessContext: !!processContext,
@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
         taskExecution = await TaskExecutionService.createTaskExecution({
           userId,
           domainId,
-          masterTaskId: processId,
+          masterTaskId: masterTaskId,
           masterTaskName: processName,
           executionModel,
           title: messages[messages.length - 1]?.content?.substring(0, 100) || 'New Chat',
@@ -131,8 +131,13 @@ export async function POST(request: NextRequest) {
 
       // Fetch complete process data including SOP
       let processData;
-      if (processId) {
-        processData = await Process.findOne({ processId });
+      if (masterTaskId) {
+        processData = await MasterTask.findOne({ 
+          $or: [
+            { masterTaskId: masterTaskId },
+            { _id: masterTaskId }
+          ]
+        });
       }
       
       // Enhance the last user message if needed
@@ -140,7 +145,7 @@ export async function POST(request: NextRequest) {
       if (enhancedMessages.length > 0 && enhancedMessages[enhancedMessages.length - 1].role === 'user') {
         const lastMessage = enhancedMessages[enhancedMessages.length - 1];
         const processCtx: ProcessContext = {
-          processId: processId || '',
+          masterTaskId: masterTaskId || '',
           processName: processName || '',
           executionModel: executionModel || '',
           domainId: domainId || '',
@@ -161,9 +166,9 @@ export async function POST(request: NextRequest) {
       let finalSystemPrompt: string;
       let processRequiredParameters = processData?.requiredParameters;
       
-      if (processId && processName) {
+      if (masterTaskId && processName) {
         const processCtx: ProcessContext = {
-          processId,
+          masterTaskId: masterTaskId,
           processName,
           executionModel: executionModel || '',
           domainId: domainId || '',

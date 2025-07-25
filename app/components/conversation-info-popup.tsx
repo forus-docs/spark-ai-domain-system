@@ -31,7 +31,7 @@ interface TaskExecutionInfo {
   taskExecution: {
     executionId: string;
     title: string;
-    processId?: string;
+    masterTaskId?: string;
     processName?: string;
     executionModel?: string;
     domainId?: string;
@@ -46,7 +46,7 @@ interface TaskExecutionInfo {
     isCompleted: boolean;
     isViewed: boolean;
     isHidden: boolean;
-    processId?: string;
+    masterTaskId?: string;
     masterPost: {
       title: string;
       description: string;
@@ -56,7 +56,7 @@ interface TaskExecutionInfo {
     };
   };
   process?: {
-    processId: string;
+    masterTaskId: string;
     name: string;
     description: string;
     category: string;

@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyAccessToken } from '@/app/lib/auth/jwt';
 import { connectToDatabase } from '@/app/lib/database';
-import Process from '@/app/models/MasterTask';
+import MasterTask from '@/app/models/MasterTask';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { processId: string } }
+  { params }: { params: { masterTaskId: string } }
 ) {
   try {
     // Connect to database
@@ -31,35 +31,40 @@ export async function GET(
       );
     }
 
-    // Find the process
-    const process = await Process.findOne({ processId: params.processId });
+    // Find the master task
+    const masterTask = await MasterTask.findOne({ 
+      $or: [
+        { masterTaskId: params.masterTaskId },
+        { _id: params.masterTaskId }
+      ]
+    });
     
-    if (!process) {
+    if (!masterTask) {
       return NextResponse.json(
-        { error: 'Process not found' },
+        { error: 'Master task not found' },
         { status: 404 }
       );
     }
 
-    // Return process data
+    // Return master task data
     return NextResponse.json({
       process: {
-        processId: process.processId,
-        name: process.name,
-        description: process.description,
-        category: process.category,
-        executionModel: process.executionModel,
-        currentStage: process.currentStage,
-        aiAgentAttached: process.aiAgentAttached,
-        aiAgentRole: process.aiAgentRole,
-        requiredParameters: process.requiredParameters,
-        systemPrompt: process.systemPrompt,
-        intro: process.intro,
-        standardOperatingProcedure: process.standardOperatingProcedure,
+        masterTaskId: masterTask.masterTaskId || masterTask._id.toString(),
+        name: masterTask.name,
+        description: masterTask.description,
+        category: masterTask.category,
+        executionModel: masterTask.executionModel,
+        currentStage: masterTask.currentStage,
+        aiAgentAttached: masterTask.aiAgentAttached,
+        aiAgentRole: masterTask.aiAgentRole,
+        requiredParameters: masterTask.requiredParameters,
+        systemPrompt: masterTask.systemPrompt,
+        intro: masterTask.intro,
+        standardOperatingProcedure: masterTask.standardOperatingProcedure,
       }
     });
   } catch (error) {
-    console.error('Error fetching process:', error);
+    console.error('Error fetching master task:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

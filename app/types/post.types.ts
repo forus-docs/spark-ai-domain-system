@@ -20,7 +20,7 @@ export interface MasterTask {
   taskType: TaskType;
   
   // Foreign key to MasterTask collection (optional)
-  masterTaskId?: string; // Links to masterTask.processId when ctaAction.type === 'process'
+  masterTaskId?: string; // Links to masterTask when ctaAction.type === 'process'
   
   // Visual elements
   imageUrl?: string; // Optional image

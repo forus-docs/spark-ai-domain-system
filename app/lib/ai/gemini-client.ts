@@ -17,7 +17,7 @@ export interface ChatMessage {
 }
 
 export interface ProcessInfo {
-  processId?: string;
+  masterTaskId?: string;
   processName?: string;
   executionModel?: string;
   domainId?: string;

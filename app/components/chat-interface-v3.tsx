@@ -33,7 +33,7 @@ interface Message {
 
 interface ChatInterfaceProps {
   processName: string;
-  processId?: string;
+  masterTaskId?: string;
   executionModel?: string;
   onClose: () => void;
   accessToken?: string;
@@ -43,7 +43,7 @@ interface ChatInterfaceProps {
 
 export function ChatInterfaceV3({ 
   processName, 
-  processId,
+  masterTaskId,
   executionModel, 
   onClose,
   accessToken,
@@ -311,7 +311,7 @@ export function ChatInterfaceV3({
         headers,
         payload: JSON.stringify({
           messages: messagesToSend,
-          processId,
+          masterTaskId: masterTaskId,
           processName,
           executionModel,
           domainId: currentDomain?.id,
@@ -377,7 +377,7 @@ export function ChatInterfaceV3({
       ));
       setIsStreaming(false);
     }
-  }, [input, attachedFiles, isStreaming, messages, accessToken, executionModel, processId, chatId, executionId, currentDomain?.id, processName, updateChatActivity, uploadFile, contextId, clearFiles]);
+  }, [input, attachedFiles, isStreaming, messages, accessToken, executionModel, masterTaskId, chatId, executionId, currentDomain?.id, processName, updateChatActivity, uploadFile, contextId, clearFiles]);
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-white">

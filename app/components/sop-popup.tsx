@@ -11,7 +11,7 @@ interface SopPopupProps {
 }
 
 interface ProcessInfo {
-  processId: string;
+  masterTaskId: string;
   processName: string;
   standardOperatingProcedure?: IStandardOperatingProcedure;
 }
@@ -25,7 +25,7 @@ export function SopPopup({ executionId, accessToken, onClose }: SopPopupProps) {
   useEffect(() => {
     const fetchProcessInfo = async () => {
       try {
-        // First get taskExecution info to get processId
+        // First get taskExecution info to get masterTaskId
         const headers: Record<string, string> = {};
         if (accessToken) {
           headers['Authorization'] = `Bearer ${accessToken}`;
@@ -41,8 +41,8 @@ export function SopPopup({ executionId, accessToken, onClose }: SopPopupProps) {
 
         const taskExecutionData = await taskExecutionResponse.json();
         
-        if (!taskExecutionData.taskExecution?.processId) {
-          setError('No process associated with this taskExecution');
+        if (!taskExecutionData.taskExecution?.masterTaskId) {
+          setError('No master task associated with this taskExecution');
           return;
         }
 
@@ -63,7 +63,7 @@ export function SopPopup({ executionId, accessToken, onClose }: SopPopupProps) {
         }
 
         setProcessInfo({
-          processId: processData.process.processId,
+          masterTaskId: processData.process.masterTaskId,
           processName: processData.process.name,
           standardOperatingProcedure: processData.process.standardOperatingProcedure
         });

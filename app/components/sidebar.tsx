@@ -119,8 +119,8 @@ export function Sidebar({ onClose }: SidebarProps = {}) {
       <RecentItems 
         onChatClick={(chat) => {
           // Navigate to the process detail page with chat parameter
-          if (chat.domainId && chat.processId) {
-            router.push(`/domains/${chat.domainId}/processes/${chat.processId}?startChat=true&chatId=${chat.id}`);
+          if (chat.domainId && chat.masterTaskId) {
+            router.push(`/domains/${chat.domainId}/processes/${chat.masterTaskId}?startChat=true&chatId=${chat.id}`);
             onClose?.();
           }
         }}

@@ -41,7 +41,6 @@ export class DomainAdoptionService {
       const masterTask = await MasterTask.findOne({ 
         $or: [
           { masterTaskId: request.masterTaskId },
-          { processId: request.masterTaskId },
           { _id: request.masterTaskId }
         ]
       });
@@ -53,7 +52,7 @@ export class DomainAdoptionService {
       // Check if already adopted
       const existingDomainTask = await DomainTask.findOne({
         domain: request.domainId,
-        masterTaskId: masterTask.masterTaskId || masterTask.processId || masterTask._id.toString(),
+        masterTaskId: masterTask._id.toString(),
         isQMSCompliant: true
       });
 
@@ -130,9 +129,9 @@ export class DomainAdoptionService {
       taskType: taskType,
       
       // References (for audit trail)
-      masterTaskId: masterTask.masterTaskId || masterTask.processId || masterTask._id.toString(),
+      masterTaskId: masterTask._id.toString(),
       masterTaskVersion: masterTask.standardOperatingProcedure?.metadata?.version || '1.0.0',
-      originalMasterTaskId: masterTask.masterTaskId || masterTask.processId || masterTask._id.toString(),
+      originalMasterTaskId: masterTask._id.toString(),
       
       // Complete MasterTask snapshot (QMS Compliant)
       masterTaskSnapshot: {
@@ -263,7 +262,7 @@ export class DomainAdoptionService {
       ctaText: ctaTextMapping[masterTask.executionModel] || 'Start',
       ctaAction: {
         type: 'process',
-        target: masterTask.masterTaskId || masterTask.processId || masterTask._id.toString(),
+        target: masterTask._id.toString(),
         params: {}
       }
     };
@@ -290,11 +289,11 @@ export class DomainAdoptionService {
       // Filter and format available tasks
       return masterTasks
         .filter(task => {
-          const taskId = task.masterTaskId || task.processId || task._id.toString();
+          const taskId = task._id.toString();
           return !adoptedMasterTaskIds.has(taskId);
         })
         .map(task => ({
-          id: task.masterTaskId || task.processId || task._id.toString(),
+          id: task._id.toString(),
           name: task.name,
           description: task.description,
           category: task.category,

@@ -8,7 +8,7 @@ export interface Chat {
   conversationId?: string;
   domainId: string;
   processName: string;
-  processId?: string;
+  masterTaskId?: string;
   executionModel: string;
   startedAt: Date;
   lastMessageAt: Date;
@@ -54,7 +54,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
             conversationId: exec.executionId,
             domainId: exec.domainId,
             processName: exec.masterTaskName || 'Chat',
-            processId: exec.masterTaskId,
+            masterTaskId: exec.masterTaskId,
             executionModel: exec.executionModel || 'chat',
             startedAt: new Date(exec.createdAt),
             lastMessageAt: new Date(exec.updatedAt),

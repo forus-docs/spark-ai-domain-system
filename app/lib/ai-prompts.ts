@@ -9,7 +9,7 @@
 import { AI_ERROR_HANDLING_PROMPT } from './error-codes';
 
 export interface ProcessContext {
-  processId: string;
+  masterTaskId: string;
   processName: string;
   executionModel: string;
   currentStage?: string;
@@ -316,7 +316,7 @@ CRITICAL INSTRUCTIONS:
 7. Use \`\`\`artifact:form syntax to create an interactive form
 8. AFTER providing the artifact, STOP and wait for user confirmation - do not continue generating content`;
   } else if (hasUploadedFile || extractionKeywords.some(kw => message.toLowerCase().includes(kw))) {
-    if (processContext.processId === 'identity-verification' && hasUploadedFile) {
+    if (processContext.masterTaskId === 'identity-verification' && hasUploadedFile) {
       enhancement = '\n\n' + PROCESS_PROMPTS['identity-verification'].extract;
     } else {
       enhancement = '\n\nPlease provide the extracted data in a JSON code block.';
