@@ -1,4 +1,4 @@
-# Database and Code Refactoring Strategy: Process → Task Naming
+  # Database and Code Refactoring Strategy: Process → Task Naming
 
 ## Current vs Proposed Naming
 

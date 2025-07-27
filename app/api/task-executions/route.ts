@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyAccessToken } from '@/app/lib/auth/jwt';
 import { TaskExecutionService, ExecutionMessageService } from '@/app/services/task-executions';
 import { connectToDatabase } from '@/app/lib/database';
+import mongoose from 'mongoose';
+import DomainTask from '@/app/models/DomainTask';
 
 export const dynamic = 'force-dynamic';
 
@@ -37,12 +39,42 @@ export async function GET(request: NextRequest) {
   const offset = parseInt(searchParams.get('offset') || '0');
 
   try {
-    const executions = await TaskExecutionService.getUserTaskExecutions(
+    // Always get executions with domain information
+    const executionsWithDomain = await TaskExecutionService.getUserTaskExecutions(
       userId,
-      domainId || undefined,
+      undefined, // Don't filter by domain in the service
       limit,
       offset
     );
+
+    // Add domain information to all executions
+    const DomainTask = mongoose.model('DomainTask');
+    
+    // Get all unique domainTaskIds
+    const domainTaskIds = [...new Set(executionsWithDomain
+      .filter(exec => exec.domainTaskId)
+      .map(exec => exec.domainTaskId))];
+    
+    // Fetch domain information for these tasks
+    const domainTasks = await DomainTask.find({
+      _id: { $in: domainTaskIds }
+    }).select('_id domain').lean();
+    
+    // Create a map of domainTaskId to domain
+    const domainTaskToDomainMap = new Map(
+      domainTasks.map((dt: any) => [dt._id.toString(), dt.domain.toString()])
+    );
+    
+    // Add domainId to each execution
+    const executionsWithDomainId = executionsWithDomain.map(exec => ({
+      ...exec,
+      domainId: exec.domainTaskId ? domainTaskToDomainMap.get(exec.domainTaskId) : null
+    }));
+
+    // Filter by domainId if requested
+    const executions = domainId 
+      ? executionsWithDomainId.filter(exec => exec.domainId === domainId)
+      : executionsWithDomainId;
 
     return NextResponse.json({ executions });
   } catch (error) {

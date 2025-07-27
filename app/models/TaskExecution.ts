@@ -8,9 +8,7 @@ export interface ITaskExecution extends Document {
   createdAt: Date;
   updatedAt: Date;
   // Spark-specific fields
-  domainId?: string;
-  masterTaskId?: string;
-  masterTaskName?: string;
+  domainTaskId?: string;
   executionModel?: string;
   userTaskId?: string; // Reference to UserTask that initiated this execution
   // LibreChat compatibility fields
@@ -57,15 +55,10 @@ const TaskExecutionSchema = new Schema<ITaskExecution>(
       },
     ],
     // Spark-specific fields
-    domainId: {
+    domainTaskId: {
       type: String,
       index: true,
     },
-    masterTaskId: {
-      type: String,
-      index: true,
-    },
-    masterTaskName: String,
     executionModel: {
       type: String,
       enum: ['form', 'sop', 'knowledge', 'bpmn', 'training'],

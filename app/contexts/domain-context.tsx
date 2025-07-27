@@ -92,7 +92,13 @@ export function DomainProvider({ children }: { children: ReactNode }) {
 
   // Update current domain in database
   const updateCurrentDomain = async (domainId: string) => {
-    if (!accessToken || !user) return;
+    const startTime = Date.now();
+    console.log('[DomainContext] updateCurrentDomain start:', domainId);
+    
+    if (!accessToken || !user) {
+      console.log('[DomainContext] updateCurrentDomain skipped - no accessToken or user');
+      return;
+    }
     
     try {
       const response = await fetch('/api/user/domains', {
@@ -104,12 +110,15 @@ export function DomainProvider({ children }: { children: ReactNode }) {
         body: JSON.stringify({ currentDomainId: domainId }),
       });
       
+      console.log(`[DomainContext] updateCurrentDomain API call took ${Date.now() - startTime}ms`);
+      
       if (response.ok) {
         // Update user in auth context with new currentDomainId
         const updatedUser = { ...user, currentDomainId: domainId };
         if (updateUser) {
           updateUser(updatedUser);
         }
+        console.log(`[DomainContext] updateCurrentDomain complete (total: ${Date.now() - startTime}ms)`);
       }
     } catch (error) {
       console.error('Failed to update current domain:', error);
@@ -132,6 +141,7 @@ export function DomainProvider({ children }: { children: ReactNode }) {
   }).filter(item => item.domain && item.role);
 
   const setCurrentDomain = (domain: Domain) => {
+    console.log('[DomainContext] setCurrentDomain called for:', domain.slug, domain.id);
     setCurrentDomainId(domain.id);
     updateCurrentDomain(domain.id);
   };
@@ -158,35 +168,62 @@ export function DomainProvider({ children }: { children: ReactNode }) {
       if (response.ok) {
         const data = await response.json();
         
-        // Update local state immediately for UI responsiveness
-        const newMembership: UserDomainMembership = {
-          userId: user.id,
-          domainId: domain.id,
-          roleId: role.id,
-          joinedAt: new Date()
-        };
+        // Check if user is already in domain
+        const existingDomainIndex = user.domains.findIndex(d => d.domainId === domain.id);
         
-        setMembershipData(prev => [...prev, newMembership]);
+        if (existingDomainIndex !== -1) {
+          // Update existing domain membership
+          const updatedDomains = [...user.domains];
+          updatedDomains[existingDomainIndex] = {
+            ...updatedDomains[existingDomainIndex],
+            role: role.id,
+            joinedAt: new Date()
+          };
+          
+          // Update membership data
+          setMembershipData(prev => prev.map(m => 
+            m.domainId === domain.id 
+              ? { ...m, roleId: role.id, joinedAt: new Date() }
+              : m
+          ));
+          
+          // Update user in auth context
+          if (updateUser) {
+            updateUser({
+              ...user,
+              domains: updatedDomains,
+              currentDomainId: domain.id
+            });
+          }
+        } else {
+          // Add new domain membership
+          const newMembership: UserDomainMembership = {
+            userId: user.id,
+            domainId: domain.id,
+            roleId: role.id,
+            joinedAt: new Date()
+          };
+          
+          setMembershipData(prev => [...prev, newMembership]);
+          
+          // Update auth context's user object
+          if (updateUser) {
+            updateUser({
+              ...user,
+              domains: [...user.domains, {
+                domainId: domain.id,
+                role: role.id,
+                joinedAt: new Date()
+              }],
+              currentDomainId: domain.id
+            });
+          }
+        }
+        
         setCurrentDomainId(domain.id);
         
         // Update the database with the new current domain
         await updateCurrentDomain(domain.id);
-        
-        // Update auth context's user object to keep it in sync
-        if (user && updateUser) {
-          const updatedUser = {
-            ...user,
-            domains: [...user.domains, {
-              domainId: domain.id,
-              role: role.id,
-              joinedAt: new Date()
-            }],
-            currentDomainId: domain.id
-          };
-          
-          // Update the user in auth context
-          updateUser(updatedUser);
-        }
       }
     } catch (error) {
       console.error('Failed to join domain:', error);

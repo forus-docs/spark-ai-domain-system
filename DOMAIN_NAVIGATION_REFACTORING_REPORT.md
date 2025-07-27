@@ -2,7 +2,7 @@
 
 ## Executive Summary
 
-This report analyzes the current domain navigation architecture in the Spark AI Domain System and proposes a refactoring strategy to implement domain-specific URLs (e.g., `mavens.forus.digital` or `forus.digital/mavens`). The goal is to transform domain selection from a forced navigation flow into an optional feature while maintaining backward compatibility.
+This report analyzes the current domain navigation architecture in the Spark AI Domain System and proposes a refactoring strategy to implement domain-specific URLs (e.g., `mavens.forus.digital` or `forus.digital/mavens`) as an enhancement to the existing system. The goal is to create a domain-focused experience by adding direct domain URLs while maintaining the current root domain behavior and context system. Domain switching will be de-emphasized by moving it to the user profile dropdown in the right drawer menu.
 
 ## Current State Analysis
 
@@ -44,7 +44,7 @@ The current implementation uses a centralized domain context with the following 
 /chat/[executionId]  → Task execution chat
 /invite/[code]       → Domain invitation flow
 /procedures          → Legacy route
-/domains/[domainId]/processes/[processId] → Process detail
+/domains/[domainId]/tasks/[masterTaskId] → Task detail
 ```
 
 #### Key Dependencies
@@ -55,10 +55,10 @@ The current implementation uses a centralized domain context with the following 
 
 ### Current Issues
 
-1. **Forced Navigation Flow**
-   - Users must select a domain before accessing content
-   - Interrupts user journey with domain selection
-   - Can't bookmark/share domain-specific content
+1. **Domain Selection Prominence**
+   - Domain switching is too prominent in the UI
+   - Suggests multi-domain usage is primary use case
+   - Doesn't reflect single-domain focus
 
 2. **Generic URLs**
    - No domain identity in URLs
@@ -70,10 +70,10 @@ The current implementation uses a centralized domain context with the following 
    - Domain switching requires full page context update
    - Potential for context/URL mismatch
 
-4. **Limited Multi-Domain Workflow**
-   - Can't easily work across multiple domains
-   - Tab-based workflows not supported
-   - Domain switching is disruptive
+4. **Unclear User Journey**
+   - Mixed messaging about single vs multi-domain usage
+   - Domain marketplace suggests browsing multiple domains
+   - Most users will primarily use one domain
 
 ## Proposed Architecture
 
@@ -134,14 +134,19 @@ The current implementation uses a centralized domain context with the following 
 
 #### Implementation Requirements
 
-1. **Route Restructuring**
+1. **Route Structure (Additive)**
    ```
-   /[domain]/                    → Domain home
-   /[domain]/tasks              → Domain tasks
-   /[domain]/chat/[executionId] → Task execution
-   /[domain]/admin              → Domain admin
-   /domains                     → Domain marketplace (unchanged)
-   /account                     → User account (domain-agnostic)
+   # Existing routes remain unchanged
+   /                            → Current domain home (existing behavior)
+   /domains                     → Domain marketplace (existing)
+   /tasks                       → Current domain tasks (existing)
+   /chat/[executionId]         → Task execution (existing)
+   
+   # New domain-specific routes (additions)
+   /[domain]/                   → Direct domain home
+   /[domain]/tasks             → Direct domain tasks
+   /[domain]/chat/[executionId] → Direct task execution
+   /[domain]/admin             → Domain admin
    ```
 
 2. **Domain Validation Middleware**
@@ -165,11 +170,40 @@ The current implementation uses a centralized domain context with the following 
    }
    ```
 
-3. **Context Refactoring**
+3. **UI Reorganization**
    ```typescript
-   // Remove currentDomain state management
-   // Domain comes from URL, not state
-   const { domain } = useParams()
+   // Right drawer structure with de-emphasized domain switching
+   <Sidebar>
+     {/* Header */}
+     <Logo>Forus Spark AI</Logo>
+     
+     {/* Navigation - domain-specific items */}
+     <Navigation>
+       <Link href={`/${domain.slug}`}>Home</Link>
+       <Link href={`/${domain.slug}/tasks`}>Tasks</Link>
+       <Link href={`/${domain.slug}/team`}>Team</Link>
+       <Link href={`/${domain.slug}/organogram`}>Organogram</Link>
+       <Divider />
+       <Link href="/domains">Explore Other Domains</Link>
+     </Navigation>
+     
+     {/* User Profile - Shows current domain instead of email */}
+     <UserProfile>
+       <Avatar>{user.initials}</Avatar>
+       <div>
+         <Name>{user.name}</Name>
+         <Domain>{currentDomain.name}</Domain> {/* Was: user.email */}
+       </div>
+       <DropdownMenu>
+         <MenuItem>View Profile</MenuItem>
+         <MenuItem>Settings</MenuItem>
+         <MenuItem onClick={() => router.push('/domains')}>
+           Switch Domain
+         </MenuItem>
+         <MenuItem>Sign Out</MenuItem>
+       </DropdownMenu>
+     </UserProfile>
+   </Sidebar>
    ```
 
 #### Pros
@@ -207,7 +241,7 @@ Before implementing the refactoring:
    - API calls needing domain parameter
    - Components using `currentDomain` from context
 
-### Phase 2: Database Preparation
+### Phase 2: Database & UI Preparation
 
 1. **Add Domain Slug**
    ```typescript
@@ -231,6 +265,21 @@ Before implementing the refactoring:
        .replace(/\s+/g, '-')
        .replace(/[^a-z0-9-]/g, '')
    })
+   ```
+
+3. **UI Component Updates**
+   ```typescript
+   // Update UserProfile component
+   // app/components/user-profile.tsx
+   <div className="text-sm font-medium text-gray-900 truncate">
+     {user.name}
+   </div>
+   <div className="text-xs text-gray-600 truncate">
+     {currentDomain?.name || 'No domain selected'}
+   </div>
+   
+   // Remove prominent DomainSelector from top of sidebar
+   // Move domain switching to user dropdown menu
    ```
 
 ### Phase 3: Route Implementation
@@ -261,48 +310,68 @@ Before implementing the refactoring:
    router.push(`/${domain.slug}/chat/${executionId}`)
    ```
 
-3. **Backward Compatibility**
+3. **Root Route Behavior (Unchanged)**
    ```typescript
-   // app/page.tsx
+   // app/page.tsx - REMAINS AS IS
    export default function HomePage() {
-     const { user } = useAuth()
+     const { currentDomain } = useDomain()
      const router = useRouter()
      
-     useEffect(() => {
-       if (user?.currentDomainId) {
-         // Redirect to user's current domain
-         const domain = user.domains.find(d => d.domainId === user.currentDomainId)
-         if (domain) {
-           router.replace(`/${domain.slug}`)
-         }
-       } else {
-         router.replace('/domains')
-       }
-     }, [user])
+     // Current behavior maintained
+     if (!currentDomain) {
+       // Redirect to domain selection if no domain
+       router.replace('/domains')
+     } else {
+       // Show current domain's content
+       return <DomainHomePage domain={currentDomain} />
+     }
    }
+   
+   // Domain-specific routes are optional alternatives
+   // Users can still use / with domain context
+   // OR navigate directly to /[domain]/ for bookmarkable URLs
    ```
 
-### Phase 4: Context Refactoring
+### Phase 4: Context Simplification
 
-1. **Simplify Domain Context**
+1. **Domain Context Updates**
    ```typescript
-   // Remove currentDomain state management
-   // Keep only domain membership and utilities
+   // Domain comes from URL but maintain current domain for UI display
    interface DomainContextType {
      joinedDomains: DomainMembership[]
+     currentDomain: Domain | null  // Keep for user profile display
+     urlDomain: Domain | null      // Domain from current URL
      joinDomain: (domain: Domain, role: Role) => void
      isJoinedDomain: (domainId: string) => boolean
      getUserRole: (domainId: string) => string | undefined
+     setCurrentDomain: (domain: Domain) => void // Updates on navigation
    }
    ```
 
-2. **Create Domain Route Context**
+2. **Domain Page Layout**
    ```typescript
-   // For domain-specific routes
-   interface DomainRouteContextType {
-     domain: Domain
-     userRole: Role
-     isAdmin: boolean
+   // app/[domain]/layout.tsx
+   export default async function DomainLayout({
+     children,
+     params
+   }: {
+     children: React.ReactNode
+     params: { domain: string }
+   }) {
+     const domain = await validateDomain(params.domain)
+     if (!domain) notFound()
+     
+     // Check user has access to this domain
+     const hasAccess = await verifyDomainMembership(domain.id)
+     if (!hasAccess) redirect('/domains')
+     
+     return (
+       <DomainProvider domain={domain}>
+         <DomainHeader domain={domain} />
+         {children}
+         <RightDrawer /> {/* Contains domain switching */}
+       </DomainProvider>
+     )
    }
    ```
 
@@ -341,10 +410,11 @@ Before implementing the refactoring:
 ## Benefits & Outcomes
 
 ### Immediate Benefits
-1. **Direct Domain Access** - Bookmark and share domain URLs
-2. **Multi-Domain Workflows** - Work across domains in tabs
-3. **Improved UX** - No forced navigation flow
+1. **Domain-Focused Experience** - Clear single-domain emphasis
+2. **Direct Domain Access** - Bookmark and share domain URLs
+3. **Cleaner UI** - Domain switching de-emphasized in drawer
 4. **Better Analytics** - Track domain-specific metrics
+5. **Improved Onboarding** - Users join one domain and stay focused
 
 ### Long-Term Benefits
 1. **SEO Optimization** - Domain-specific content indexing
@@ -373,6 +443,12 @@ Before implementing the refactoring:
 
 ## Conclusion
 
-The proposed refactoring transforms domain selection from a blocking requirement to an enhanced navigation feature. By implementing path-based routing, we can deliver immediate value while maintaining a clear path to subdomain-based architecture when business requirements justify the additional complexity.
+The proposed refactoring enhances the current system by adding domain-specific URLs while preserving all existing functionality. This hybrid approach provides:
 
-This approach aligns with Forus principles by removing friction from the user journey while enhancing the platform's capability to serve multiple domain ecosystems effectively.
+1. **Backward Compatibility** - Root domain behavior remains unchanged
+2. **Enhanced Navigation** - Domain-specific URLs for bookmarking and sharing
+3. **Maintained Flexibility** - Users can work with either navigation pattern
+4. **Progressive Enhancement** - Domain URLs are additive, not replacement
+5. **De-emphasized Switching** - Domain selection moves to user profile dropdown
+
+Key principle: **Domain-specific routes are an addition, not a replacement**. Users can continue using `/` with domain context OR navigate to `/[domain]/` for direct access. This approach ensures no disruption to existing workflows while adding powerful new capabilities for domain-focused navigation.

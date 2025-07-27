@@ -5,22 +5,22 @@ import { useState, useEffect } from 'react';
 import { useDomain } from '@/app/contexts/domain-context';
 import { useChat } from '@/app/contexts/chat-context';
 import { useAuth } from '@/app/contexts/auth-context';
-import { FileText, Workflow, Brain, GitBranch, GraduationCap, Bot, ArrowLeft } from 'lucide-react';
+import { FileText, Workflow, Brain, GitBranch, GraduationCap, Bot, ArrowLeft, Loader2 } from 'lucide-react';
 import { ChatInterfaceV2 } from '@/app/components/chat-interface-v2';
 import { cn } from '@/app/lib/utils';
-import { 
-  mavenProcesses, 
-  wowProcesses, 
-  bemnetProcesses, 
-  pacciProcesses 
-} from '@/app/lib/sprint2-mock-data/process-mock-data';
 
-const processMap: Record<string, any[]> = {
-  'maven-hub': mavenProcesses,
-  'wealth-on-wheels': wowProcesses,
-  'bemnet': bemnetProcesses,
-  'pacci': pacciProcesses,
-};
+interface Process {
+  id: string;
+  masterTaskId: string;
+  name: string;
+  description: string;
+  category: string;
+  executionModel: string;
+  currentStage: string;
+  aiAgentAttached: boolean;
+  aiAgentRole?: string;
+  standardOperatingProcedure?: any;
+}
 
 const executionModelIcons = {
   form: FileText,
@@ -58,10 +58,13 @@ export default function ProcessDetailPage() {
   const params = useParams();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { currentDomain } = useDomain();
+  const { currentDomain, isJoinedDomain } = useDomain();
   const { addChat } = useChat();
-  const { accessToken } = useAuth();
+  const { accessToken, user } = useAuth();
   
+  const [process, setProcess] = useState<Process | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [activeChat, setActiveChat] = useState<{
     processName: string;
     masterTaskId: string;
@@ -74,9 +77,52 @@ export default function ProcessDetailPage() {
   const startChat = searchParams.get('startChat');
   const chatId = searchParams.get('chatId');
 
-  // Find the process
-  const processes = processMap[domainId] || [];
-  const process = processes.find(p => p.id === masterTaskId);
+  // Verify domain access
+  useEffect(() => {
+    if (!user) {
+      router.push('/auth');
+      return;
+    }
+
+    if (!isJoinedDomain(domainId)) {
+      setError('You are not a member of this domain');
+      setIsLoading(false);
+      return;
+    }
+
+    // Fetch process details
+    const fetchProcess = async () => {
+      try {
+        const response = await fetch(`/api/domains/${domainId}/master-tasks/${masterTaskId}`, {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+          },
+        });
+
+        if (!response.ok) {
+          if (response.status === 403) {
+            setError('Access denied. You are not a member of this domain.');
+          } else if (response.status === 404) {
+            setError('Process not found');
+          } else {
+            setError('Failed to load process details');
+          }
+          setIsLoading(false);
+          return;
+        }
+
+        const data = await response.json();
+        setProcess(data.process);
+      } catch (error) {
+        console.error('Error fetching process:', error);
+        setError('Failed to load process details');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchProcess();
+  }, [domainId, masterTaskId, accessToken, user, isJoinedDomain, router]);
 
   // Auto-start chat if URL parameter is present
   useEffect(() => {
@@ -109,17 +155,27 @@ export default function ProcessDetailPage() {
     }
   }, [startChat, chatId, process, activeChat, addChat, currentDomain?.id, domainId]);
 
-  if (!process) {
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
+      </div>
+    );
+  }
+
+  if (error || !process) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <h1 className="text-2xl font-light text-gray-900 mb-2">Process Not Found</h1>
-          <p className="text-gray-600 mb-4">The requested process could not be found.</p>
+          <h1 className="text-2xl font-light text-gray-900 mb-2">
+            {error === 'You are not a member of this domain' ? 'Access Denied' : 'Process Not Found'}
+          </h1>
+          <p className="text-gray-600 mb-4">{error || 'The requested process could not be found.'}</p>
           <button
-            onClick={() => router.back()}
+            onClick={() => router.push('/')}
             className="text-blue-600 hover:text-blue-700 font-medium"
           >
-            Go Back
+            Go Home
           </button>
         </div>
       </div>

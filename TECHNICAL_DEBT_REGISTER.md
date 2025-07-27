@@ -1,173 +1,174 @@
-# Technical Debt Register: Naming & Architecture
+# Technical Debt Register - Spark AI Domain System
 
-## Priority 1: Critical Naming Issues
+Last Updated: January 2025
 
-### 1. Process/Post/UserPost Confusion
-**Impact**: High - Confuses every new developer
+## Overview
+This register tracks technical debt in the Spark AI Domain System based on actual code analysis.
+
+## Current State Assessment
+
+### What's Working Well ✅
+1. **QMS-Compliant Architecture** - Immutable snapshot data flow fully implemented
+2. **Database Naming Complete** - Collections already renamed (masterTasks, domainTasks, userTasks, taskExecutions)
+3. **JWT Authentication** - Secure token-based auth with refresh tokens
+4. **SSE Streaming** - Real-time chat with Server-Sent Events
+5. **React Context Architecture** - Clean separation of concerns (Auth, Domain, Chat, File)
+6. **Service Layer Refactoring** - Task Journey Service split into 4 focused services with facade pattern
+7. **MongoDB Integration** - MCP tools configured and working
+
+### Completed ✅
+1. **Database Collections** - Renamed to masterTasks, domainTasks, userTasks, taskExecutions
+2. **Model Files** - Renamed to match collections
+3. **Import Aliases** - All imports now use correct names (DomainTask, UserTask, etc.)
+4. **Service Layer** - Task Journey Service refactored into 4 focused services
+
+## Priority 0: Critical Issues 🔴
+
+### 1. Excessive Debug Logging
+**Impact**: MEDIUM - Security risk in production
+**Examples**:
+- User IDs logged in task-display.service.ts
+- Full query objects logged
+- Database connection details exposed
+
+**Fix**: Implement proper logging levels, remove sensitive data
+
+### 2. Hardcoded Mock Data in Critical Routes
+**Impact**: HIGH - Production readiness blocker
+**Location**: `/app/domains/[domainId]/processes/[masterTaskId]/page.tsx`
+**Issue**: Uses hardcoded mock data instead of fetching from database
+**Fix**: Use the existing `/api/master-tasks/[masterTaskId]` endpoint
+
+## Priority 1: High Impact 🟡
+
+### 3. Zero Test Coverage
+**Impact**: HIGH - No automated testing
 **Current State**: 
-- "Process" = master library template
-- "Post" = domain-adopted process (sounds like social media)
-- "UserPost" = user-assigned post (sounds like user content)
+- No test files in project (only in node_modules)
+- No jest/vitest configuration
+- No CI/CD test pipeline
 
-**Desired State**:
-- "MasterTask" = master library template with steps
-- "DomainTask" = domain-adopted task
-- "UserTask" = user-assigned task
+**Needed**:
+- Unit tests for services
+- Integration tests for APIs
+- E2E tests for critical flows
 
-**Effort**: 40-60 hours
-**Risk**: Medium (can be done with parallel systems)
-
-### 2. Conversation vs Execution
-**Impact**: Medium - Misleading terminology
-**Current State**: "Conversations" represent task execution sessions
-**Desired State**: "TaskExecutions" clearly indicate work being done
-**Effort**: 20-30 hours
-**Risk**: Low (mostly renaming)
-
-## Priority 2: Missing Version Management
-
-### 3. No Task Version Upgrades
-**Impact**: High - Domains stuck on old versions
-**Current State**: 
-- When Process updates, domains don't know
-- No mechanism to upgrade DomainTasks to new MasterTask versions
-- Users can't upgrade to newer task versions
-
-**Technical Debt**:
+### 4. Type Safety Gaps
+**Examples**:
 ```typescript
-// Missing functionality
-interface TaskUpgrade {
-  fromVersion: string;
-  toVersion: string;
-  migrationScript?: (oldTask: Task) => Task;
-  breakingChanges?: string[];
-}
+let domainTask: any;  // task-assignment.service.ts
+const query: any = { userId };  // task-display.service.ts
 ```
+**Fix**: Create proper TypeScript interfaces
 
-**Effort**: 80-100 hours
-**Risk**: High (needs careful design)
+### 5. Missing API Input Validation
+**Risk**: Security vulnerability
+**Current State**: Minimal validation on request bodies
+**Fix**: Add Zod or similar validation middleware
 
-### 4. Full Data Duplication
-**Impact**: Medium - Storage inefficiency
-**Current State**: Entire process/post data copied to UserPost
-**Better Approach**: Copy only mutable fields, reference immutable data
-**Effort**: 40 hours
-**Risk**: Medium (data migration needed)
+### 6. Missing Domain Access Guards
+**Risk**: Security vulnerability - unauthorized access
+**Locations**: 
+- `/app/domains/[domainId]/processes/[masterTaskId]/page.tsx` - No check if user is domain member
+- Task execution creation doesn't verify domain membership
+**Fix**: Add domain membership verification before allowing access
 
-## Priority 3: Architectural Issues
+## Priority 2: Medium Impact 🟢
 
-### 5. Unclear Separation of Concerns
-**Impact**: Medium
-**Issues**:
-- Posts handle both display AND process launching
-- Processes contain both template AND execution logic
-- No clear boundary between configuration and runtime
+### 7. Component Size
+**Large Files**:
+- `chat-interface-v2.tsx`: 1000+ lines
+- `home page.tsx`: 475 lines
+**Fix**: Break into smaller components
 
-**Desired Architecture**:
-```
-MasterTask (template) → DomainTask (config) → UserTask (state) → TaskExecution (runtime)
-```
+### 8. No Error Boundaries
+**Impact**: Single error crashes UI
+**Fix**: Add React error boundaries around major components
 
-### 6. Missing Task Lifecycle Management
-**Impact**: High for scale
-**Missing Features**:
-- Task expiration/deadlines
-- Task dependencies beyond prerequisites
-- Parallel task execution
-- Task delegation/reassignment
-- Task templates inheritance
+### 9. ~~Import Alias Inconsistency~~ ✅ FIXED
+**Status**: RESOLVED - All imports now use correct names matching the model files.
 
-## Code Smells Related to Naming
+### 10. Missing Environment Config
+**Hardcoded Values**:
+- Port 3001 in multiple places
+- Token expiry times scattered
+- "24 hours" for new task determination
 
-### 7. Inconsistent Variable Names
-```typescript
-// Found in codebase:
-const posts = await getUserPosts(userId); // Actually UserPosts
-const masterPosts = await getPosts(); // Actually Posts
-const unassignedPosts = posts.filter(...); // Mix of concepts
-```
+### 11. No Caching Layer
+**Impact**: Every request hits MongoDB
+**Opportunity**: Cache domain/master task data
 
-### 8. API Route Confusion
-```
-/api/posts/[postId]/conversation // Why conversation on a post?
-/api/posts/assign // Assigns what to what?
-/api/conversations/[conversationId]/messages // OK, but what conversation?
-```
+## Priority 3: Nice to Have 🔵
 
-## Migration Debt
+### 12. API Response Inconsistency
+**Issue**: Different error formats
+- Some: `{ error: string }`
+- Others: `{ message: string }`
 
-### 9. No Clear Migration Path
-**Current Issues**:
-- Hardcoded collection names throughout
-- No abstraction layer for database access
-- Direct MongoDB queries in routes
-- No feature flags for gradual rollout
+### 13. Missing API Documentation
+**Current**: No OpenAPI/Swagger docs
+**Need**: Automated API documentation
 
-**Needed Infrastructure**:
-```typescript
-// Need adapter pattern
-class CollectionAdapter {
-  getTaskCollection(type: 'master' | 'domain' | 'user') {
-    if (featureFlags.useNewNaming) {
-      return this.newCollections[type];
-    }
-    return this.legacyCollections[type];
-  }
-}
-```
+### 14. No Database Migrations
+**Risk**: Manual schema changes via scripts
+**Need**: Proper migration framework
 
-## Quick Wins (Can Do Now)
+### 15. Bundle Size Optimization
+**Opportunity**: Lazy load heavy components
 
-### 10. Documentation Updates
-**Effort**: 4 hours
-**Impact**: High
-- Update CLAUDE.md with clear explanations
-- Add inline comments explaining current naming
-- Create a glossary of terms
+## Quick Wins (Can Do Today) ⚡
 
-### 11. Type Aliases
-**Effort**: 2 hours
-**Impact**: Medium
-```typescript
-// Add to types/index.ts
-export type MasterTask = Process; // Clarity alias
-export type DomainTask = Post;    // Clarity alias  
-export type UserTask = UserPost;  // Clarity alias
-```
+1. **Remove Debug Logs** (2 hours)
+   - Remove console.logs with sensitive data
+   - Add proper logging library
 
-### 12. New Developer Guide
-**Effort**: 4 hours
-**Impact**: High
-- Create TERMINOLOGY.md explaining current vs ideal
-- Add to onboarding documentation
-- Include in PR template
+2. **Fix Model Imports** (4 hours)
+   - Rename model files to match collections
+   - Update all imports
 
-## Direct Fix Approach
+3. **Add Basic Validation** (4 hours)
+   - Add Zod to critical endpoints
+   - Validate user input
 
-### Immediate Action (NOW):
-- Project is backed up
-- Execute direct rename of collections
-- Update all code references
-- Test and verify
-
-## Cost of NOT Fixing
-
-1. **Developer Onboarding**: +2 days per developer
-2. **Bug Rate**: 15% of bugs are naming-confusion related
-3. **Feature Development**: 20% slower due to conceptual overhead
-4. **Documentation Debt**: Grows with each feature
+4. **Environment Config** (2 hours)
+   - Create config/constants.ts
+   - Move hardcoded values
 
 ## Recommended Action Plan
 
-### Execute Direct Fix:
-1. Rename MongoDB collections
-2. Update all TypeScript interfaces
-3. Fix all service files
-4. Update API routes
-5. Fix React components
-6. Test everything works
+### Week 1: Critical Fixes
+1. Complete naming refactor (align code with database)
+2. Remove sensitive logging
+3. Fix model imports
 
-### No Migration Needed:
-- Direct rename approach
-- All changes at once
-- Clean, immediate fix
+### Month 1: Foundation
+1. Add test framework and initial tests
+2. Add input validation
+3. Fix TypeScript any types
+4. Add error boundaries
+
+### Month 2-3: Quality
+1. Achieve 50% test coverage
+2. Refactor large components
+3. Add caching layer
+4. Standardize API responses
+
+### Quarter: Scale
+1. Add monitoring/APM
+2. Comprehensive documentation
+3. Performance optimization
+4. Security audit
+
+## Metrics to Track
+
+| Metric | Current | Target |
+|--------|---------|--------|
+| Test Coverage | 0% | 70% |
+| TypeScript Strict | ~60% | 95% |
+| Component Size | 500+ lines | <200 lines |
+| API Response Time | Unmeasured | <200ms p95 |
+| Error Rate | Unknown | <0.1% |
+
+## Notes
+
+The project has a solid foundation with good architectural decisions (QMS compliance, snapshot architecture, proper auth). The main debt is around incomplete refactoring and missing quality infrastructure (tests, monitoring, documentation).

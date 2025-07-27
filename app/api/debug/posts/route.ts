@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/app/lib/database';
-import UserPost from '@/app/models/UserTask';
+import UserTask from '@/app/models/UserTask';
 import User from '@/app/models/User';
 import jwt from 'jsonwebtoken';
 
@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
     }
     
     // Get ALL UserPosts first
-    const allUserPosts = await UserPost.find({}).limit(5);
+    const allUserPosts = await UserTask.find({}).limit(5);
     console.log('\n=== ALL UserPosts (sample) ===');
     allUserPosts.forEach((up, index) => {
       console.log(`UserPost ${index + 1}:`);
@@ -62,11 +62,11 @@ export async function GET(request: NextRequest) {
     console.log('\n=== Querying for specific user ===');
     console.log('Query: { userId:', userId, '}');
     
-    const userPosts = await UserPost.find({ userId: userId });
+    const userPosts = await UserTask.find({ userId: userId });
     console.log('UserPosts found for this user:', userPosts.length);
     
     // Try with string conversion
-    const userPostsString = await UserPost.find({ userId: userId.toString() });
+    const userPostsString = await UserTask.find({ userId: userId.toString() });
     console.log('UserPosts with toString():', userPostsString.length);
     
     // Try to find by exact match from sample
@@ -77,7 +77,7 @@ export async function GET(request: NextRequest) {
       console.log('Does it match our userId?', sampleUserId === userId);
       console.log('Does it match with toString?', sampleUserId === userId.toString());
       
-      const testQuery = await UserPost.find({ userId: sampleUserId });
+      const testQuery = await UserTask.find({ userId: sampleUserId });
       console.log('UserPosts found with sample userId:', testQuery.length);
     }
     

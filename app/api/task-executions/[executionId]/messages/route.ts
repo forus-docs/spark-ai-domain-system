@@ -52,9 +52,7 @@ export async function GET(
       taskExecution: {
         executionId: taskExecution.executionId,
         title: taskExecution.title,
-        domainId: taskExecution.domainId,
-        masterTaskId: taskExecution.masterTaskId,
-        masterTaskName: taskExecution.masterTaskName,
+        domainTaskId: taskExecution.domainTaskId,
         executionModel: taskExecution.executionModel,
       },
     });

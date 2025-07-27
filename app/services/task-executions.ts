@@ -5,9 +5,7 @@ import { v4 as uuidv4 } from 'uuid';
 export interface CreateTaskExecutionParams {
   userId: string;
   title?: string;
-  domainId?: string;
-  masterTaskId?: string;
-  masterTaskName?: string;
+  domainTaskId?: string;
   executionModel?: string;
   userTaskId?: string; // Reference to UserTask that initiated this execution
   model?: string;
@@ -37,9 +35,7 @@ export class TaskExecutionService {
       executionId,
       userId: params.userId,
       title: params.title || 'New Task Execution',
-      domainId: params.domainId,
-      masterTaskId: params.masterTaskId,
-      masterTaskName: params.masterTaskName,
+      domainTaskId: params.domainTaskId,
       executionModel: params.executionModel,
       userTaskId: params.userTaskId, // Link to UserTask
       aiModel: params.model || 'gemini-1.5-flash',
@@ -69,9 +65,7 @@ export class TaskExecutionService {
     offset: number = 0
   ): Promise<ITaskExecution[]> {
     const query: any = { userId };
-    if (domainId) {
-      query.domainId = domainId;
-    }
+    // Note: domainId filtering happens in the API route since TaskExecution doesn't have domainId field
 
     return await TaskExecution.find(query)
       .sort({ updatedAt: -1 })

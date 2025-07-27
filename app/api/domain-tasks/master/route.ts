@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyAccessToken } from '@/app/lib/auth/jwt';
 import { connectToDatabase } from '@/app/lib/database';
-import Post from '@/app/models/DomainTask';
+import DomainTask from '@/app/models/DomainTask';
 
 export const dynamic = 'force-dynamic';
 
@@ -51,7 +51,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Get domain tasks
-    const tasks = await Post.find(query)
+    const tasks = await DomainTask.find(query)
       .sort({ priority: 1, createdAt: -1 })
       .lean();
     

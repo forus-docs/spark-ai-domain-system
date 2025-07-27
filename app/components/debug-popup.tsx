@@ -48,14 +48,11 @@ export function DebugPopup({ isOpen, onClose }: DebugPopupProps) {
       })),
     },
     storage: {
-      localStorage: {
-        user: typeof window !== 'undefined' ? localStorage.getItem('user') : null,
-        accessToken: typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null,
-      },
       cookies: {
         note: 'HTTP-only cookies cannot be read by JavaScript',
         accessToken: 'HTTP-only (check middleware/API)',
-        refreshToken: 'HTTP-only (check middleware/API)'
+        refreshToken: 'HTTP-only (check middleware/API)',
+        intendedDomain: 'HTTP-only (check middleware/API)'
       },
     },
   };
@@ -151,22 +148,20 @@ export function DebugPopup({ isOpen, onClose }: DebugPopupProps) {
 
             {/* Storage */}
             <section>
-              <h3 className="font-semibold text-sm text-gray-700 mb-2">Storage Persistence</h3>
+              <h3 className="font-semibold text-sm text-gray-700 mb-2">Storage Persistence (Server-Side Only)</h3>
               <div className="bg-gray-50 rounded p-3 text-xs font-mono space-y-2">
                 <div>
-                  <div className="font-semibold mb-1">LocalStorage:</div>
-                  <div className="ml-4 space-y-1">
-                    <div>user: <span className={debugData.storage.localStorage.user ? 'text-green-600' : 'text-red-600'}>{debugData.storage.localStorage.user ? 'stored' : 'missing'}</span></div>
-                    <div>accessToken: <span className={debugData.storage.localStorage.accessToken ? 'text-green-600' : 'text-red-600'}>{debugData.storage.localStorage.accessToken ? 'stored' : 'missing'}</span></div>
-                  </div>
-                </div>
-                <div>
-                  <div className="font-semibold mb-1">Cookies (HTTP-only):</div>
+                  <div className="font-semibold mb-1">HTTP-only Cookies:</div>
                   <div className="ml-4 space-y-1 text-gray-600">
-                    <div className="text-xs italic">{debugData.storage.cookies.note}</div>
+                    <div className="text-xs italic mb-2">{debugData.storage.cookies.note}</div>
                     <div>accessToken: <span className="text-blue-600">{debugData.storage.cookies.accessToken}</span></div>
                     <div>refreshToken: <span className="text-blue-600">{debugData.storage.cookies.refreshToken}</span></div>
+                    <div>intendedDomain: <span className="text-blue-600">{debugData.storage.cookies.intendedDomain}</span></div>
                   </div>
+                </div>
+                <div className="mt-3 p-2 bg-blue-50 rounded text-blue-800">
+                  <div className="font-semibold">Note:</div>
+                  <div>All authentication and session data is now stored server-side using HTTP-only cookies for enhanced security.</div>
                 </div>
               </div>
             </section>

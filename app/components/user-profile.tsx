@@ -2,9 +2,11 @@
 
 import { useState } from 'react';
 import { cn } from '@/app/lib/utils';
-import { User, Settings, LogOut, ChevronUp } from 'lucide-react';
+import { User, Settings, LogOut, ChevronUp, Building2 } from 'lucide-react';
 import { useAuth } from '@/app/contexts/auth-context';
+import { useDomain } from '@/app/contexts/domain-context';
 import { useRouter } from 'next/navigation';
+import { ClearStorageButton } from '@/app/components/clear-storage-button';
 
 interface UserProfileProps {
   onNavigate?: () => void;
@@ -13,6 +15,7 @@ interface UserProfileProps {
 export function UserProfile({ onNavigate }: UserProfileProps = {}) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { user, logout } = useAuth();
+  const { currentDomain } = useDomain();
   const router = useRouter();
 
   if (!user) {
@@ -52,7 +55,7 @@ export function UserProfile({ onNavigate }: UserProfileProps = {}) {
             {user.name}
           </div>
           <div className="text-xs text-gray-600 truncate">
-            {user.email}
+            {currentDomain?.name || 'No domain selected'}
           </div>
         </div>
         <ChevronUp className={cn(
@@ -72,7 +75,19 @@ export function UserProfile({ onNavigate }: UserProfileProps = {}) {
             <Settings className="w-3 h-3" />
             Settings
           </button>
+          <button 
+            onClick={() => {
+              router.push('/domains');
+              setIsMenuOpen(false);
+              onNavigate?.();
+            }}
+            className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+          >
+            <Building2 className="w-3 h-3" />
+            Switch Domain
+          </button>
           <hr className="my-0.5 border-gray-200" />
+          <ClearStorageButton />
           <button 
             onClick={logout}
             className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 transition-colors"

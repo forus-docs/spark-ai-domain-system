@@ -40,12 +40,14 @@ export function DomainJoinModal({ domain, isOpen, onClose }: DomainJoinModalProp
   const [currentStep, setCurrentStep] = useState<JoinStep>('role-selection');
   const [selectedRole, setSelectedRole] = useState<Role | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  const { joinDomain, isJoinedDomain, setCurrentDomain } = useDomain();
+  const { joinDomain, isJoinedDomain, setCurrentDomain, getUserRole } = useDomain();
 
   const isAlreadyJoined = isJoinedDomain(domain.id);
+  const hasRole = !!getUserRole(domain.id); // Check if user has a role (not null)
 
   useEffect(() => {
     if (isOpen) {
+      // Always start at role selection since we're combining description with it
       setCurrentStep('role-selection');
       setSelectedRole(null);
       setIsProcessing(false);
@@ -54,9 +56,8 @@ export function DomainJoinModal({ domain, isOpen, onClose }: DomainJoinModalProp
 
   const handleRoleSelect = (role: Role) => {
     setSelectedRole(role);
-    if (!isAlreadyJoined) {
-      setCurrentStep('payment'); // Proceed to membership payment
-    }
+    // Always proceed to payment for role selection (even if in domain with no role)
+    setCurrentStep('payment');
   };
 
   const proceedToConfirmation = () => {
@@ -68,21 +69,26 @@ export function DomainJoinModal({ domain, isOpen, onClose }: DomainJoinModalProp
     
     setIsProcessing(true);
     
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    if (!isAlreadyJoined) {
-      joinDomain(domain, selectedRole);
-    }
+    // Always call joinDomain to either join new or update role
+    await joinDomain(domain, selectedRole);
     setCurrentDomain(domain);
     
     setIsProcessing(false);
+    
+    // Check if we need to navigate
+    const currentPath = window.location.pathname;
+    const targetPath = `/${domain.slug}`;
+    
+    // Close modal first
     onClose();
     
-    // Small delay to ensure state updates before navigation
-    setTimeout(() => {
-      router.push('/');
-    }, 100);
+    // Only navigate if we're not already on the target page
+    if (!currentPath.startsWith(targetPath)) {
+      // Small delay to ensure state updates before navigation
+      setTimeout(() => {
+        router.push(targetPath);
+      }, 100);
+    }
   };
 
   if (!isOpen) return null;
@@ -96,7 +102,7 @@ export function DomainJoinModal({ domain, isOpen, onClose }: DomainJoinModalProp
             <div className="absolute top-1.5 left-1/2 -translate-x-1/2 w-10 h-1 bg-gray-300 rounded-full" />
             
             <h2 className="text-lg font-light text-gray-900">
-              {isAlreadyJoined ? `Switch to ${domain.name}` : `Join ${domain.name}`}
+              {hasRole ? `Switch to ${domain.name}` : `Join ${domain.name}`}
             </h2>
             <button
               onClick={onClose}
@@ -108,30 +114,33 @@ export function DomainJoinModal({ domain, isOpen, onClose }: DomainJoinModalProp
 
           {/* Content - Scrollable */}
           <div className="flex-1 overflow-y-auto p-3">
-            {/* Progress Steps - Only show for new joins */}
-            {!isAlreadyJoined && (
+            {/* Progress Steps - Show for users without roles */}
+            {!hasRole && (
               <div className="flex items-center justify-center mb-4">
                 <div className="flex items-center gap-3">
-                  {['role-selection', 'payment', 'confirmation'].map((step, index) => (
-                    <div key={step} className="flex items-center">
-                      <div className={cn(
-                        "w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium",
-                        currentStep === step || index < ['role-selection', 'payment', 'confirmation'].indexOf(currentStep)
-                          ? "bg-blue-600 text-white"
-                          : "bg-gray-200 text-gray-600"
-                      )}>
-                        {index + 1}
-                      </div>
-                      {index < 2 && (
+                  {['role-selection', 'payment', 'confirmation'].map((step, index) => {
+                    const steps = ['role-selection', 'payment', 'confirmation'];
+                    return (
+                      <div key={step} className="flex items-center">
                         <div className={cn(
-                          "w-16 h-0.5 mx-2",
-                          index < ['role-selection', 'payment', 'confirmation'].indexOf(currentStep)
-                            ? "bg-blue-600"
-                            : "bg-gray-200"
-                        )} />
-                      )}
-                    </div>
-                  ))}
+                          "w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium",
+                          currentStep === step || index < steps.indexOf(currentStep)
+                            ? "bg-blue-600 text-white"
+                            : "bg-gray-200 text-gray-600"
+                        )}>
+                          {index + 1}
+                        </div>
+                        {index < 2 && (
+                          <div className={cn(
+                            "w-16 h-0.5 mx-2",
+                            index < steps.indexOf(currentStep)
+                              ? "bg-blue-600"
+                              : "bg-gray-200"
+                          )} />
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -139,9 +148,22 @@ export function DomainJoinModal({ domain, isOpen, onClose }: DomainJoinModalProp
             {/* Step Content */}
             {currentStep === 'role-selection' && (
               <div>
-                <h3 className="text-base font-medium text-gray-900 mb-3">
-                  {isAlreadyJoined ? 'Select your role' : 'Choose your role'}
-                </h3>
+                {/* Domain Banner and Description */}
+                <div className={cn(
+                  "h-32 rounded-lg bg-gradient-to-br mb-4",
+                  domain.gradient || 'from-gray-500 to-gray-600'
+                )}>
+                  <div className="flex items-center justify-center h-full">
+                    <span className="text-5xl">{domain.icon}</span>
+                  </div>
+                </div>
+                <h3 className="text-xl font-medium text-gray-900 mb-3">{domain.name}</h3>
+                <p className="text-sm text-gray-600 mb-6">{domain.description}</p>
+                
+                {/* Role Selection */}
+                <h4 className="text-base font-medium text-gray-900 mb-3">
+                  {hasRole ? 'Select your role' : 'Choose your role'}
+                </h4>
                 <p className="text-sm text-gray-600 mb-4">
                   {domain.availableRoles.length > 1 
                     ? 'This domain offers multiple roles. Select the one that best fits your needs.'
@@ -257,7 +279,7 @@ export function DomainJoinModal({ domain, isOpen, onClose }: DomainJoinModalProp
               Cancel
             </button>
             
-            {((currentStep === 'role-selection' && selectedRole && isAlreadyJoined) || 
+            {((currentStep === 'role-selection' && selectedRole && hasRole) || 
               currentStep === 'confirmation') && (
               <button
                 onClick={handleJoinDomain}
@@ -273,7 +295,7 @@ export function DomainJoinModal({ domain, isOpen, onClose }: DomainJoinModalProp
                   <>Processing...</>
                 ) : (
                   <>
-                    {isAlreadyJoined ? 'Switch Domain' : 'Join Domain'}
+                    Join Domain
                     <ArrowRight className="w-4 h-4" />
                   </>
                 )}

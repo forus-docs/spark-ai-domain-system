@@ -3,8 +3,6 @@ import { verifyAccessToken } from '@/app/lib/auth/jwt';
 import { streamGeminiResponse, ChatMessage } from '@/app/lib/ai/gemini-client';
 import { TaskExecutionService, ExecutionMessageService } from '@/app/services/task-executions';
 import { connectToDatabase } from '@/app/lib/database';
-import { generateSystemPrompt, enhanceUserMessage, ProcessContext } from '@/app/lib/ai-prompts';
-import MasterTask from '@/app/models/MasterTask';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -30,14 +28,13 @@ export async function POST(request: NextRequest) {
     return new Response('Invalid token', { status: 401 });
   }
 
-  const { messages, masterTaskId, processContext, systemPrompt, executionId, domainId, processName, executionModel } = await request.json();
+  const { messages, processContext, systemPrompt, executionId, processName, executionModel } = await request.json();
 
   console.log('Chat stream request:', {
     userId,
     messagesCount: messages?.length,
-    masterTaskId,
-    domainId,
     executionId,
+    executionModel,
     hasProcessContext: !!processContext,
     hasSystemPrompt: !!systemPrompt
   });
@@ -68,9 +65,6 @@ export async function POST(request: NextRequest) {
         console.log('Creating new taskExecution for user:', userId);
         taskExecution = await TaskExecutionService.createTaskExecution({
           userId,
-          domainId,
-          masterTaskId: masterTaskId,
-          masterTaskName: processName,
           executionModel,
           title: messages[messages.length - 1]?.content?.substring(0, 100) || 'New Chat',
         });
@@ -129,68 +123,22 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // Fetch complete process data including SOP
-      let processData;
-      if (masterTaskId) {
-        processData = await MasterTask.findOne({ 
-          $or: [
-            { masterTaskId: masterTaskId },
-            { _id: masterTaskId }
-          ]
-        });
-      }
+      // Get process context from the task execution's system prompt
+      // The system prompt already contains all necessary context from the UserTask snapshot
       
-      // Enhance the last user message if needed
-      const enhancedMessages = [...messages];
-      if (enhancedMessages.length > 0 && enhancedMessages[enhancedMessages.length - 1].role === 'user') {
-        const lastMessage = enhancedMessages[enhancedMessages.length - 1];
-        const processCtx: ProcessContext = {
-          masterTaskId: masterTaskId || '',
-          processName: processName || '',
-          executionModel: executionModel || '',
-          domainId: domainId || '',
-          requiredParameters: processData?.requiredParameters,
-          standardOperatingProcedure: processData?.standardOperatingProcedure
-        };
-        lastMessage.content = enhanceUserMessage(lastMessage.content, processCtx);
-      }
+      // Messages are already properly formatted from the client
 
       // Convert messages to ChatMessage format
-      const chatMessages: ChatMessage[] = enhancedMessages.map(msg => ({
+      const chatMessages: ChatMessage[] = messages.map(msg => ({
         role: msg.role as 'user' | 'assistant' | 'system',
         content: msg.content,
         images: msg.images || undefined
       }));
 
-      // Generate structured system prompt if we have process context
-      let finalSystemPrompt: string;
-      let processRequiredParameters = processData?.requiredParameters;
-      
-      if (masterTaskId && processName) {
-        const processCtx: ProcessContext = {
-          masterTaskId: masterTaskId,
-          processName,
-          executionModel: executionModel || '',
-          domainId: domainId || '',
-          requiredParameters: processRequiredParameters,
-          standardOperatingProcedure: processData?.standardOperatingProcedure
-        };
-        
-        // Use process system prompt if available, otherwise generate one
-        if (processData?.systemPrompt) {
-          finalSystemPrompt = processData.systemPrompt;
-          // Append required parameters info if not already in the prompt
-          if (processRequiredParameters && processRequiredParameters.length > 0) {
-            finalSystemPrompt += '\n\n' + generateSystemPrompt(processCtx).split('REQUIRED PARAMETERS')[1];
-          }
-        } else {
-          finalSystemPrompt = generateSystemPrompt(processCtx);
-        }
-      } else {
-        // Use system prompt from taskExecution or default
-        finalSystemPrompt = taskExecution.systemPrompt || systemPrompt || 
-          'You are a helpful AI assistant for the Spark AI Domain System.';
-      }
+      // Use the system prompt from the task execution if available
+      // This already contains all context from the UserTask snapshot
+      const finalSystemPrompt = taskExecution.systemPrompt || systemPrompt || 
+        'You are a helpful AI assistant for the Spark AI Domain System.';
 
       // Stream the Gemini response
       let fullResponse = '';
@@ -262,29 +210,7 @@ export async function POST(request: NextRequest) {
           
           chunksSent++;
           
-          // Check if we have field extraction with JSON and should stop streaming
-          if (processRequiredParameters && processRequiredParameters.length > 0) {
-            // Look for JSON code block with "fields" object
-            const jsonBlockRegex = /```json\s*([\s\S]*?)\s*```/g;
-            const jsonMatch = fullResponse.match(jsonBlockRegex);
-            
-            if (jsonMatch) {
-              try {
-                const jsonContent = jsonMatch[jsonMatch.length - 1].replace(/```json\s*|\s*```/g, '');
-                const parsed = JSON.parse(jsonContent);
-                
-                // If we have a "fields" object, we've completed field extraction
-                if (parsed.fields && typeof parsed.fields === 'object') {
-                  hasFieldExtraction = true;
-                  // Stop streaming after this chunk
-                  break;
-                }
-              } catch (parseError) {
-                // Continue streaming if JSON parsing fails
-                continue;
-              }
-            }
-          }
+          // Field extraction logic removed - handled by UserTask snapshot context
         }
 
         // Save assistant message

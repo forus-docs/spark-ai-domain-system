@@ -19,7 +19,7 @@ interface PageProps {
 
 export default function InvitePage({ params }: PageProps) {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, accessToken } = useAuth();
   const { joinDomain, setCurrentDomain } = useDomain();
   const [domain, setDomain] = useState<Domain | null>(null);
   const [role, setRole] = useState<Role | null>(null);
@@ -96,7 +96,7 @@ export default function InvitePage({ params }: PageProps) {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('accessToken')}` // Get token from storage
+          'Authorization': `Bearer ${accessToken}` // Use token from context
         },
         body: JSON.stringify({ code: params.code })
       });

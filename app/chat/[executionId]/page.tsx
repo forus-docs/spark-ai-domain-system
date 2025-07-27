@@ -80,8 +80,7 @@ export default function ChatPage({ params }: PageProps) {
   return (
     <ChatInterfaceV2
       executionId={taskExecution.executionId}
-      masterTaskName={taskExecution.masterTaskName}
-      masterTaskId={taskExecution.masterTaskId}
+      masterTaskName={taskExecution.title || 'Task Execution'}
       executionModel={taskExecution.executionModel}
       userTaskId={taskExecution.userTaskId}
       onClose={() => router.push('/')}

@@ -122,8 +122,8 @@ const TaskActionSnapshotSchema = new Schema({
     required: true,
   },
   params: {
-    type: Map,
-    of: Schema.Types.Mixed,
+    type: Schema.Types.Mixed,
+    default: {}
   },
 }, { _id: false });
 
@@ -210,44 +210,48 @@ const DomainTaskSnapshotSchema = new Schema({
   
   // COMPLETE EXECUTION DATA FROM MASTERTASK (QMS Compliant)
   executionData: {
-    // Core execution fields
-    executionModel: {
-      type: String,
-      required: true,
-      enum: ['form', 'sop', 'knowledge', 'bpmn', 'training']
+    type: {
+      // Core execution fields
+      executionModel: {
+        type: String,
+        required: true,
+        enum: ['form', 'sop', 'knowledge', 'bpmn', 'training']
+      },
+      
+      // AI Configuration
+      aiAgentAttached: { type: Boolean, default: false },
+      aiAgentRole: String,
+      aiAgentId: String,
+      systemPrompt: String,
+      intro: String,
+      
+      // Execution-specific data
+      standardOperatingProcedure: SOPSnapshotSchema,
+      contextDocuments: [ContextDocumentSnapshotSchema],
+      requiredParameters: [RequiredParameterSnapshotSchema],
+      checklist: [ChecklistItemSnapshotSchema],
+      
+      // Form execution
+      formSchema: Schema.Types.Mixed,
+      validationRules: Schema.Types.Mixed,
+      
+      // Workflow execution
+      workflowDefinition: Schema.Types.Mixed,
+      
+      // Training execution
+      curriculum: [CurriculumSnapshotSchema],
+      
+      // Metadata
+      sopMetadata: {
+        complianceStandards: [String],
+        riskLevel: String,
+        estimatedDuration: String,
+        requiredApprovals: [String],
+        auditRequirements: [String]
+      }
     },
-    
-    // AI Configuration
-    aiAgentAttached: { type: Boolean, default: false },
-    aiAgentRole: String,
-    aiAgentId: String,
-    systemPrompt: String,
-    intro: String,
-    
-    // Execution-specific data
-    standardOperatingProcedure: SOPSnapshotSchema,
-    contextDocuments: [ContextDocumentSnapshotSchema],
-    requiredParameters: [RequiredParameterSnapshotSchema],
-    checklist: [ChecklistItemSnapshotSchema],
-    
-    // Form execution
-    formSchema: Schema.Types.Mixed,
-    validationRules: Schema.Types.Mixed,
-    
-    // Workflow execution
-    workflowDefinition: Schema.Types.Mixed,
-    
-    // Training execution
-    curriculum: [CurriculumSnapshotSchema],
-    
-    // Metadata
-    sopMetadata: {
-      complianceStandards: [String],
-      riskLevel: String,
-      estimatedDuration: String,
-      requiredApprovals: [String],
-      auditRequirements: [String]
-    }
+    required: false,
+    default: null
   },
   
   // Domain customizations applied

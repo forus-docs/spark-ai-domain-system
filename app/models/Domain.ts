@@ -3,6 +3,7 @@ import mongoose, { Schema, Document } from 'mongoose';
 export interface IDomain extends Document {
   domainId: string;
   name: string;
+  slug: string;
   tagline?: string;
   description: string;
   icon: string;
@@ -44,6 +45,14 @@ const DomainSchema = new Schema<IDomain>(
     name: {
       type: String,
       required: true,
+    },
+    slug: {
+      type: String,
+      required: true,
+      unique: true,
+      lowercase: true,
+      trim: true,
+      match: /^[a-z0-9-]+$/,
     },
     tagline: {
       type: String,

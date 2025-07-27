@@ -46,8 +46,33 @@ node scripts/migrate-to-qms-compliant.js
 Data flows through complete, immutable snapshots ensuring consistency and audit trails:
 
 ```
-MasterTask → DomainTask → UserTask → TaskExecution
-(template)   (domain copy)  (user copy)   (execution)
+┌─────────────────┐
+│  MASTER TASKS   │ ← "Master library of all task templates"
+│   (library of   │
+│  task templates │
+│   with SOPs)    │
+└────────┬────────┘
+         │ adopted by domain
+         ▼
+┌─────────────────┐
+│  DOMAIN TASKS   │ ← "Tasks this domain has adopted"
+│ (domain-specific│
+│  configurations)│
+└────────┬────────┘
+         │ assigned to user
+         ▼
+┌─────────────────┐
+│   USER TASKS    │ ← "Tasks assigned to specific users"
+│ (user's assigned│
+│     tasks)      │
+└────────┬────────┘
+         │ executed as
+         ▼
+┌─────────────────┐
+│ TASK EXECUTIONS │ ← "Active task execution sessions"
+│   (execution    │
+│    sessions)    │
+└─────────────────┘
 ```
 
 **Key Benefits:**
@@ -140,7 +165,6 @@ taskExecutions → executionMessages
 - `CLAUDE.md` - Development guidelines
 
 ### Technical Guides
-- `REFACTORING_NAMING_STRATEGY.md` - Naming conventions
 - `TECHNICAL_DEBT_REGISTER.md` - Known issues and roadmap
 - `docs/mongodb-admin-guide.md` - Database operations
 - `scripts/README.md` - Migration documentation

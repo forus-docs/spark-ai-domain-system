@@ -3,6 +3,7 @@ import { Domain, User, UserDomainMembership, RecentItem } from '@/app/types/doma
 export const mockDomains: Domain[] = [
   {
     id: 'maven-hub',
+    slug: 'maven-hub',
     icon: '🌐',
     name: 'Maven Hub',
     tagline: 'Global Investment Network',
@@ -73,6 +74,7 @@ export const mockDomains: Domain[] = [
   },
   {
     id: 'wealth-on-wheels',
+    slug: 'wealth-on-wheels',
     icon: '🚖',
     name: 'Wealth on Wheels',
     tagline: 'Siyabangena - Digital Transport Revolution',
@@ -154,6 +156,7 @@ export const mockDomains: Domain[] = [
   },
   {
     id: 'bemnet',
+    slug: 'bemnet',
     icon: '💰',
     name: 'Bemnet',
     tagline: 'Financial Inclusion on a Trusted Network',
@@ -235,6 +238,7 @@ export const mockDomains: Domain[] = [
   },
   {
     id: 'pacci',
+    slug: 'pacci',
     icon: '🤝',
     name: 'PACCI',
     tagline: 'Pan African Chamber of Commerce and Industry',

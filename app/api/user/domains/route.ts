@@ -107,29 +107,38 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if already joined
-    const existingDomain = user.domains.find((d: any) => d.domainId === domainId);
-    if (existingDomain) {
-      return NextResponse.json(
-        { error: 'Already joined this domain' },
-        { status: 400 }
+    const existingDomainIndex = user.domains.findIndex((d: any) => d.domainId === domainId);
+    
+    let updatedUser;
+    
+    if (existingDomainIndex !== -1) {
+      // User is already in domain - update their role
+      const updateQuery = {
+        [`domains.${existingDomainIndex}.role`]: roleId,
+        [`domains.${existingDomainIndex}.joinedAt`]: new Date() // Update join date on role change
+      };
+      
+      updatedUser = await User.findByIdAndUpdate(
+        userId,
+        { $set: updateQuery },
+        { new: true }
+      );
+    } else {
+      // User is not in domain - add them
+      updatedUser = await User.findByIdAndUpdate(
+        userId,
+        {
+          $push: {
+            domains: {
+              domainId,
+              role: roleId,
+              joinedAt: new Date(),
+            }
+          }
+        },
+        { new: true }
       );
     }
-
-    // Use atomic $push operation to add domain
-    // This prevents race conditions if multiple join requests happen simultaneously
-    const updatedUser = await User.findByIdAndUpdate(
-      userId,
-      {
-        $push: {
-          domains: {
-            domainId,
-            role: roleId,
-            joinedAt: new Date(),
-          }
-        }
-      },
-      { new: true } // Return the updated document
-    );
 
     if (!updatedUser) {
       return NextResponse.json(

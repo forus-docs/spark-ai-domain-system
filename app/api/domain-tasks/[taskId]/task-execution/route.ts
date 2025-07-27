@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyAccessToken } from '@/app/lib/auth/jwt';
 import { connectToDatabase } from '@/app/lib/database';
-import UserPost from '@/app/models/UserTask';
+import UserTask from '@/app/models/UserTask';
+import DomainTask from '@/app/models/DomainTask';
+import User from '@/app/models/User';
 import { TaskExecutionService, ExecutionMessageService } from '@/app/services/task-executions';
 
 export const dynamic = 'force-dynamic';
@@ -37,13 +39,38 @@ export async function POST(request: NextRequest, context: RouteContext) {
     console.log('User ID:', userId);
 
     // Get the UserTask with its complete snapshot
-    const userTask = await UserPost.findById(taskId);
+    const userTask = await UserTask.findById(taskId);
     console.log('UserTask found:', !!userTask);
     console.log('UserTask is QMS compliant:', userTask?.isQMSCompliant);
     
     if (!userTask || userTask.userId !== userId) {
       console.log('UserTask not found or wrong user');
       return NextResponse.json({ error: 'UserTask not found' }, { status: 404 });
+    }
+
+    // Verify domain access
+    const user = await User.findById(userId).select('domains');
+    if (!user) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+
+    // Get the domain from the UserTask's domainTaskId
+    const domainTask = await DomainTask.findById(userTask.domainTaskId).select('domain');
+    if (!domainTask) {
+      console.error('DomainTask not found for UserTask:', userTask.domainTaskId);
+      return NextResponse.json({ error: 'Domain task not found' }, { status: 404 });
+    }
+
+    // Check if user has access to this domain
+    const hasDomainAccess = user.domains?.some(
+      (domain: any) => domain.domain.toString() === domainTask.domain.toString()
+    );
+
+    if (!hasDomainAccess) {
+      console.log('User does not have access to domain:', domainTask.domain);
+      return NextResponse.json({ 
+        error: 'Access denied. You are not a member of this domain.' 
+      }, { status: 403 });
     }
 
     // QMS COMPLIANCE CHECK: Ensure UserTask has execution data
@@ -216,9 +243,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       taskExecution = await TaskExecutionService.createTaskExecution({
         userId,
         title: userTask.taskSnapshot.title,
-        domainId: userTask.domainTaskId, // Reference to domain task for tracking
-        masterTaskId: userTask.masterTaskId, // Reference to master task for tracking
-        masterTaskName: userTask.taskSnapshot.title,
+        domainTaskId: userTask.domainTaskId, // Reference to domain task for tracking
         executionModel: executionData.executionModel,
         userTaskId: userTask._id.toString(),
         model: 'gemini-1.5-flash', // Default model
@@ -241,9 +266,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
     return NextResponse.json({
       executionId: taskExecution.executionId,
       isNew: existingExecutions.length === 0,
-      masterTask: {
-        id: userTask.masterTaskId,
-        name: userTask.taskSnapshot.title,
+      task: {
+        title: userTask.taskSnapshot.title,
         executionModel: executionData.executionModel,
         aiAgentRole: executionData.aiAgentRole,
       },

@@ -71,8 +71,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           console.log('Verified:', user.identity?.isVerified || false);
         }
         console.log('--- Storage ---');
-        console.log('LocalStorage User:', localStorage.getItem('user'));
-        console.log('LocalStorage Token:', localStorage.getItem('accessToken'));
         console.log('Cookies:', document.cookie);
         console.log('======================');
         return user;
@@ -108,32 +106,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             }
             
             setUser(user);
-            
-            // Store in localStorage for client-side access
-            if (typeof window !== 'undefined') {
-              localStorage.setItem('accessToken', data.accessToken);
-              localStorage.setItem('user', JSON.stringify(user));
-            }
-          } else {
-            // No valid session, clear any stale localStorage
-            if (typeof window !== 'undefined') {
-              localStorage.removeItem('accessToken');
-              localStorage.removeItem('user');
-            }
           }
-        } else {
-          // No valid session, clear any stale localStorage
-          if (typeof window !== 'undefined') {
-            localStorage.removeItem('accessToken');
-            localStorage.removeItem('user');
-          }
-        }
-      } catch (error) {
-        console.error('Failed to refresh session:', error);
-        // Clear any stale localStorage
-        if (typeof window !== 'undefined') {
-          localStorage.removeItem('accessToken');
-          localStorage.removeItem('user');
         }
       } finally {
         // Always set loading to false
@@ -195,12 +168,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       
       setUser(fullUser);
-      
-      // Store in localStorage
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('accessToken', data.accessToken);
-        localStorage.setItem('user', JSON.stringify(fullUser));
-      }
 
       // Don't redirect here - let the auth page handle it based on returnUrl
     } catch (err) {
@@ -258,12 +225,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       
       setUser(fullUser);
-      
-      // Store in localStorage
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('accessToken', result.accessToken);
-        localStorage.setItem('user', JSON.stringify(fullUser));
-      }
 
       // Don't redirect here - let the auth page handle it based on returnUrl
     } catch (err) {
@@ -291,10 +252,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Clear client-side state
     setUser(null);
     setAccessToken(null);
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('accessToken');
-      localStorage.removeItem('user');
-    }
     
     // Don't redirect here - let components handle navigation
   };
@@ -315,22 +272,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         newIdentity: updatedUser.identity
       });
       setUser(updatedUser);
-      
-      // Update localStorage
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('user', JSON.stringify(updatedUser));
-        console.log('User verification updated in localStorage');
-      }
     }
   };
 
   const updateUser = (updatedUser: User) => {
     setUser(updatedUser);
-    
-    // Update localStorage
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('user', JSON.stringify(updatedUser));
-    }
   };
 
   return (

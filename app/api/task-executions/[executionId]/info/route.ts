@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyAccessToken } from '@/app/lib/auth/jwt';
 import { connectToDatabase } from '@/app/lib/database';
 import TaskExecution from '@/app/models/TaskExecution';
-import UserPost from '@/app/models/UserTask';
-import Post from '@/app/models/DomainTask';
+import UserTask from '@/app/models/UserTask';
+import DomainTask from '@/app/models/DomainTask';
 import MasterTask from '@/app/models/MasterTask';
 
 export const dynamic = 'force-dynamic';
@@ -62,9 +62,9 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
     // Get UserTask information if available
     if (taskExecution.userTaskId) {
-      const userTask = await UserPost.findById(taskExecution.userTaskId).populate('domainTaskId');
+      const userTask = await UserTask.findById(taskExecution.userTaskId).populate('domainTaskId');
       if (userTask) {
-        const domainTask = await Post.findById(userTask.domainTaskId);
+        const domainTask = await DomainTask.findById(userTask.domainTaskId);
         response.userTask = {
           id: userTask._id.toString(),
           domainTaskId: userTask.domainTaskId,

@@ -36,9 +36,8 @@ const navigationItems: NavItem[] = [
   { id: 'domains', name: 'Domains', href: '/domains', icon: FolderTree, requiresDomain: false, order: 2 },
   { id: 'organogram', name: 'Organogram', href: '/organogram', icon: Users, requiresDomain: true, order: 3 },
   { id: 'teams', name: 'Teams', href: '/teams', icon: Users, requiresDomain: true, order: 4 },
-  { id: 'procedures', name: 'Procedures', href: '/procedures', icon: FileText, requiresDomain: true, order: 5 },
-  { id: 'tasks', name: 'Tasks', href: '/tasks', icon: CheckSquare, requiresDomain: true, order: 6 },
-  { id: 'dashboards', name: 'Dashboards', href: '/dashboards', icon: BarChart3, requiresDomain: true, order: 7 },
+  { id: 'tasks', name: 'Tasks', href: '/tasks', icon: CheckSquare, requiresDomain: true, order: 5 },
+  { id: 'dashboards', name: 'Dashboards', href: '/dashboards', icon: BarChart3, requiresDomain: true, order: 6 },
 ];
 
 interface SidebarProps {
@@ -49,6 +48,15 @@ export function Sidebar({ onClose }: SidebarProps = {}) {
   const pathname = usePathname();
   const router = useRouter();
   const { currentDomain } = useDomain();
+
+  // Build navigation items with domain-specific URLs when appropriate
+  const buildHref = (item: NavItem) => {
+    if (currentDomain && item.requiresDomain && currentDomain.slug) {
+      // Use domain-specific URL for domain-required items
+      return `/${currentDomain.slug}${item.href === '/' ? '' : item.href}`;
+    }
+    return item.href;
+  };
 
   const filteredNavItems = navigationItems
     .filter(item => !item.requiresDomain || currentDomain)
@@ -92,12 +100,13 @@ export function Sidebar({ onClose }: SidebarProps = {}) {
         <ul className="space-y-0.5">
           {filteredNavItems.map((item) => {
             const Icon = item.icon;
-            const isActive = pathname === item.href;
+            const href = buildHref(item);
+            const isActive = pathname === href || pathname === item.href;
             
             return (
               <li key={item.id}>
                 <Link
-                  href={item.href}
+                  href={href}
                   onClick={onClose}
                   className={cn(
                     "flex items-center gap-2 px-3 py-1.5 mx-2 rounded-md transition-colors text-sm",
@@ -118,9 +127,9 @@ export function Sidebar({ onClose }: SidebarProps = {}) {
       {/* Recent Items */}
       <RecentItems 
         onChatClick={(chat) => {
-          // Navigate to the process detail page with chat parameter
-          if (chat.domainId && chat.masterTaskId) {
-            router.push(`/domains/${chat.domainId}/processes/${chat.masterTaskId}?startChat=true&chatId=${chat.id}`);
+          // For recent chats, go directly to the execution
+          if (chat.conversationId) {
+            router.push(`/chat/${chat.conversationId}`);
             onClose?.();
           }
         }}

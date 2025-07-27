@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/app/lib/database';
 import User from '@/app/models/User';
+import Domain from '@/app/models/Domain';
 import { generateTokens } from '@/app/lib/auth/jwt';
 
 export const dynamic = 'force-dynamic';
@@ -54,6 +55,31 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Check if there's an intended domain cookie and user has no domains
+    const intendedDomain = request.cookies.get('intendedDomain')?.value;
+    if (intendedDomain && (!user.domains || user.domains.length === 0)) {
+      console.log('[Login] Intended domain found for user without domains:', intendedDomain);
+      
+      // Find the domain by slug
+      const domain = await Domain.findOne({ slug: intendedDomain });
+      if (domain) {
+        console.log('[Login] Adding user to domain:', domain.name);
+        
+        // Add user to domain WITHOUT a role - they need to select one
+        user.domains = [{
+          domainId: domain._id.toString(),
+          role: null, // No role assigned yet
+          joinedAt: new Date()
+        }];
+        
+        // Set as current domain
+        user.currentDomainId = domain._id.toString();
+        
+        await user.save();
+        console.log('[Login] User added to domain successfully');
+      }
+    }
+
     // Generate tokens
     const { accessToken, refreshToken } = generateTokens(user);
 
@@ -80,6 +106,9 @@ export async function POST(request: NextRequest) {
       path: '/',
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
+
+    // Clear the intended domain cookie if it exists
+    response.cookies.delete('intendedDomain');
 
     return response;
   } catch (error) {

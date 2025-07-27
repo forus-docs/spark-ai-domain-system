@@ -315,10 +315,8 @@ export function ChatInterfaceV2({
           headers,
           payload: JSON.stringify({
             messages: messagesToSend,
-            masterTaskId: masterTaskId,
             processName: masterTaskName,
             executionModel,
-            domainId: currentDomain?.id,
             executionId: executionId || undefined,
           }),
           method: 'POST',
@@ -495,10 +493,8 @@ export function ChatInterfaceV2({
         headers,
         payload: JSON.stringify({
           messages: messagesToSend,
-          masterTaskId: masterTaskId,
           processName: masterTaskName,
           executionModel,
-          domainId: currentDomain?.id,
           executionId: executionId || undefined,
         }),
         method: 'POST',
