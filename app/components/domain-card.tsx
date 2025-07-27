@@ -19,8 +19,8 @@ export function DomainCard({ domain, isJoined, onClick }: DomainCardProps) {
 
   const handleClick = () => {
     if (isJoined) {
-      // Navigate to home with this domain selected
-      router.push('/');
+      // Navigate to domain-specific home
+      router.push(`/${domain.slug}`);
     } else {
       // Open join modal
       onClick();

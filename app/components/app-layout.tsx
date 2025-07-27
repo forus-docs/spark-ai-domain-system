@@ -17,7 +17,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   
   // Don't show sidebar on auth pages or invite pages
-  const isAuthPage = pathname === '/login' || pathname === '/register' || pathname === '/auth';
+  const isAuthPage = pathname === '/auth' || pathname.startsWith('/auth');
   const isInvitePage = pathname.startsWith('/invite/');
   
   if (isAuthPage || isInvitePage) {

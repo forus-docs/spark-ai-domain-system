@@ -1,14 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyAccessToken } from '@/app/lib/auth/jwt';
 import { connectToDatabase } from '@/app/lib/database';
-import { TaskJourneyService } from '@/app/lib/services/task-journey.service';
 import DomainTask from '@/app/models/DomainTask';
+import TaskExecution from '@/app/models/TaskExecution';
 import User from '@/app/models/User';
+import { v4 as uuidv4 } from 'uuid';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
-  let taskId: string | undefined;
+  let domainTaskId: string | undefined;
   let userId: string | undefined;
   
   try {
@@ -31,18 +32,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
     }
 
-    // Get task ID from request body
+    // Get domain task ID from request body
     const body = await request.json();
-    taskId = body.taskId;
+    domainTaskId = body.taskId;
 
-    if (!taskId) {
+    if (!domainTaskId) {
       return NextResponse.json({ error: 'Task ID is required' }, { status: 400 });
     }
 
-    // Verify the task exists and get its domain
-    const domainTask = await DomainTask.findById(taskId).select('domain');
+    // Get the domain task with its complete snapshot
+    const domainTask = await DomainTask.findById(domainTaskId);
     if (!domainTask) {
-      return NextResponse.json({ error: 'Task not found' }, { status: 404 });
+      return NextResponse.json({ error: 'Domain task not found' }, { status: 404 });
     }
 
     // Verify user has access to this domain
@@ -62,44 +63,69 @@ export async function POST(request: NextRequest) {
       }, { status: 403 });
     }
 
-    // Assign the task to the user (self-assignment)
-    const result = await TaskJourneyService.assignTask({
+    // Check if user already has an active execution for this task
+    const existingExecution = await TaskExecution.findOne({
       userId,
-      taskId,
-      reason: 'user_initiated',
-      assignedBy: userId  // Self-assignment: assignedBy is the same as userId
+      domainTaskId,
+      status: { $in: ['assigned', 'in_progress'] }
     });
 
-    if (!result.success) {
-      return NextResponse.json(
-        { error: result.error || 'Failed to assign task' },
-        { status: 400 }
-      );
+    if (existingExecution) {
+      return NextResponse.json({ 
+        error: 'You already have an active execution for this task',
+        executionId: existingExecution.executionId
+      }, { status: 400 });
     }
 
-    console.log(`Task ${taskId} assigned to user ${userId}`);
-    
-    // Type assertion since we know the service returns userTask on success
-    const successResult = result as { success: true; userTask?: any; userTaskId?: string };
-    
-    if (!successResult.userTaskId) {
-      return NextResponse.json(
-        { error: 'Task assignment succeeded but userTaskId not returned' },
-        { status: 500 }
-      );
-    }
+    // Create task execution (combining UserTask + TaskExecution)
+    const executionId = uuidv4();
+    const taskExecution = new TaskExecution({
+      executionId,
+      userId,
+      domainId: domainTask.domain,
+      domainTaskId,
+      
+      // Complete task snapshot from DomainTask
+      taskSnapshot: {
+        title: domainTask.masterTaskSnapshot.title,
+        description: domainTask.masterTaskSnapshot.description,
+        taskType: domainTask.masterTaskSnapshot.taskType,
+        executionModel: domainTask.masterTaskSnapshot.executionModel,
+        aiAgentRole: domainTask.masterTaskSnapshot.aiAgentRole,
+        systemPrompt: domainTask.customizations?.systemPrompt || domainTask.masterTaskSnapshot.systemPrompt,
+        customInstructions: domainTask.customizations?.customInstructions || domainTask.masterTaskSnapshot.customInstructions,
+        sop: domainTask.masterTaskSnapshot.sop,
+        procedures: domainTask.masterTaskSnapshot.procedures,
+        checklist: domainTask.masterTaskSnapshot.checklist,
+        requiredParameters: domainTask.masterTaskSnapshot.requiredParameters,
+        formSchema: domainTask.masterTaskSnapshot.formSchema,
+        reward: domainTask.customizations?.reward || domainTask.masterTaskSnapshot.reward,
+        estimatedDuration: domainTask.masterTaskSnapshot.estimatedDuration,
+        difficultyLevel: domainTask.masterTaskSnapshot.difficultyLevel,
+        introductionMessage: domainTask.customizations?.introductionMessage || domainTask.masterTaskSnapshot.introductionMessage
+      },
+      
+      // Initial state
+      status: 'assigned',
+      assignedAt: new Date(),
+      messages: []
+    });
+
+    await taskExecution.save();
+
+    console.log(`Task ${domainTaskId} assigned to user ${userId} with execution ${executionId}`);
     
     return NextResponse.json({ 
       success: true, 
       message: 'Task assigned successfully',
-      userTaskId: successResult.userTaskId
+      executionId: taskExecution.executionId
     });
   } catch (error) {
     console.error('Error assigning task:', error);
     console.error('Full error details:', {
       message: error instanceof Error ? error.message : 'Unknown error',
       stack: error instanceof Error ? error.stack : undefined,
-      taskId,
+      domainTaskId,
       userId
     });
     
@@ -107,7 +133,7 @@ export async function POST(request: NextRequest) {
       { 
         error: 'Failed to assign task',
         details: error instanceof Error ? error.message : 'Unknown error',
-        taskId,
+        domainTaskId,
         userId
       },
       { status: 500 }

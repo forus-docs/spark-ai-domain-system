@@ -23,7 +23,7 @@ export default function ClearPage() {
     
     // Redirect after a moment
     setTimeout(() => {
-      router.push('/');
+      router.push('/domains');
     }, 1000);
   }, [router]);
 

@@ -14,13 +14,9 @@ import {
   FileText, 
   CheckSquare, 
   BarChart3,
-  FolderTree,
   X
 } from 'lucide-react';
-import { DomainSelector } from '@/app/components/domain-selector';
-import { RecentItems } from '@/app/components/recent-items';
 import { UserProfile } from '@/app/components/user-profile';
-import type { Chat } from '@/app/contexts/chat-context';
 
 interface NavItem {
   id: string;
@@ -33,11 +29,10 @@ interface NavItem {
 
 const navigationItems: NavItem[] = [
   { id: 'home', name: 'Home', href: '/', icon: Home, requiresDomain: true, order: 1 }, // Changed to require domain
-  { id: 'domains', name: 'Domains', href: '/domains', icon: FolderTree, requiresDomain: false, order: 2 },
-  { id: 'organogram', name: 'Organogram', href: '/organogram', icon: Users, requiresDomain: true, order: 3 },
-  { id: 'teams', name: 'Teams', href: '/teams', icon: Users, requiresDomain: true, order: 4 },
-  { id: 'tasks', name: 'Tasks', href: '/tasks', icon: CheckSquare, requiresDomain: true, order: 5 },
-  { id: 'dashboards', name: 'Dashboards', href: '/dashboards', icon: BarChart3, requiresDomain: true, order: 6 },
+  { id: 'organogram', name: 'Organogram', href: '/organogram', icon: Users, requiresDomain: true, order: 2 },
+  { id: 'teams', name: 'Teams', href: '/teams', icon: Users, requiresDomain: true, order: 3 },
+  { id: 'tasks', name: 'Tasks', href: '/tasks', icon: CheckSquare, requiresDomain: true, order: 4 },
+  { id: 'dashboards', name: 'Dashboards', href: '/dashboards', icon: BarChart3, requiresDomain: true, order: 5 },
 ];
 
 interface SidebarProps {
@@ -90,11 +85,6 @@ export function Sidebar({ onClose }: SidebarProps = {}) {
         </div>
       </div>
 
-      {/* Domain Selector */}
-      <div className="p-3 border-b border-gray-200">
-        <DomainSelector onSelect={onClose} />
-      </div>
-
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto py-2">
         <ul className="space-y-0.5">
@@ -123,17 +113,6 @@ export function Sidebar({ onClose }: SidebarProps = {}) {
           })}
         </ul>
       </nav>
-
-      {/* Recent Items */}
-      <RecentItems 
-        onChatClick={(chat) => {
-          // For recent chats, go directly to the execution
-          if (chat.conversationId) {
-            router.push(`/chat/${chat.conversationId}`);
-            onClose?.();
-          }
-        }}
-      />
 
       {/* User Profile */}
       <div className="p-3 border-t border-gray-200">

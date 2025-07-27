@@ -39,7 +39,7 @@ export async function GET(
     // Get task execution
     const taskExecution = await TaskExecutionService.getTaskExecution(executionId);
     
-    if (!taskExecution || taskExecution.userId !== userId) {
+    if (!taskExecution || taskExecution.userId.toString() !== userId) {
       return NextResponse.json(
         { error: 'Task execution not found' },
         { status: 404 }

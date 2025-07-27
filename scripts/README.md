@@ -1,95 +1,83 @@
-# MongoDB Migration Scripts
+# Database Maintenance Scripts
 
-This directory contains scripts to migrate mock data from TypeScript files to MongoDB collections for the Spark AI Domain System.
+This directory contains safe database maintenance scripts for the Spark AI Domain System.
 
-## Overview
+## ⚠️ WARNING
 
-The migration package moves data from:
-- `app/lib/mock-data.ts` → MongoDB `domains` collection
-- `app/lib/sprint2-mock-data/process-mock-data.ts` → MongoDB `processes` collection
+Only the scripts currently in this directory are safe to run. Any other scripts have been removed because they were outdated and could damage the database.
 
-## Prerequisites
+## Available Scripts
 
-1. **MongoDB must be running** on port 27017:
-   ```bash
-   # Check if MongoDB is running
-   ps aux | grep mongod | grep -v grep
-   
-   # Start MongoDB if not running
-   /Users/jacquesvandenberg/eos-forus/mongodb-macos-aarch64-8.0.11/bin/mongod \
-     --dbpath ~/data/db \
-     --port 27017 \
-     --bind_ip 127.0.0.1 &
-   ```
+### Index Management
 
+These scripts manage MongoDB indexes for optimal query performance:
+
+1. **optimize-indexes.ts**
+   - Creates performance-optimized indexes based on common query patterns
+   - Removes unnecessary indexes that slow down writes
+   - Safe to run multiple times
+
+2. **cleanup-old-indexes.ts**
+   - Removes indexes with auto-generated names (like `userId_1_createdAt_-1`)
+   - Prepares for creating properly named indexes
+   - Run this before `create-named-indexes.ts`
+
+3. **create-named-indexes.ts**
+   - Creates all indexes with human-readable names (like `idx_user_recent`)
+   - Follows the naming convention documented in `/docs/database-indexes.md`
+   - Safe to run multiple times
+
+4. **rename-indexes.ts**
+   - Attempts to rename existing indexes (backup approach)
+   - Usually better to use cleanup + create approach
+
+## Usage
+
+### Prerequisites
+
+1. **MongoDB must be running** on port 27017
 2. **Environment variables** must be configured in `.env.local`:
    ```env
    MONGODB_URI=mongodb://localhost:27017/spark-ai
    ```
 
-## Migration Scripts
+### Running Index Optimization
 
-### 1. Domain Migration (`migrate-domains.ts`)
-Migrates all domain data including:
-- Domain metadata (name, tagline, description, etc.)
-- Roles and pricing information
-- Navigation items specific to each domain
-- Member counts and regional information
+Run these scripts in order for best results:
 
-### 2. Process Migration (`migrate-processes.ts`)
-Migrates all process templates including:
-- Process execution models (form, sop, knowledge, bpmn, training)
-- AI agent configurations
-- Domain associations
-- Maturity stages (manual, assisted, supervised, automated, ai_promoted)
-- Process-specific details (forms, SOPs, training modules, etc.)
-
-### 3. Master Migration (`migrate-all.ts`)
-Runs all migrations in the correct order:
-1. Domains (must exist before processes can reference them)
-2. Processes (requires domain ObjectIds)
-
-## Usage
-
-### Run All Migrations
 ```bash
-npm run migrate:all
+# 1. First optimize indexes (creates/removes based on usage patterns)
+npx tsx scripts/optimize-indexes.ts
+
+# 2. Clean up old auto-generated index names
+npx tsx scripts/cleanup-old-indexes.ts
+
+# 3. Create all indexes with proper readable names
+npx tsx scripts/create-named-indexes.ts
 ```
 
-### Run Individual Migrations
-```bash
-# Migrate only domains
-npm run migrate:domains
+### Verifying Indexes
 
-# Migrate only processes (requires domains to exist)
-npm run migrate:processes
-```
+After running the scripts, you can verify indexes using MongoDB MCP tools in Claude Code or MongoDB Compass.
 
-### Seed Posts (separate from migration)
-```bash
-npm run seed:posts
-```
+Expected index names follow this pattern:
+- `idx_user_recent` - Recent items by user
+- `idx_domain_active` - Active items in domain
+- `idx_text_search` - Full-text search indexes
+- etc.
 
-## Data Summary
+## Index Naming Convention
 
-### Domains (4 total)
-- **Maven Hub**: Global Investment Network
-- **Wealth on Wheels**: Digital Transport Revolution
-- **Bemnet**: Financial Inclusion on Blockchain
-- **PACCI**: Pan African Chamber of Commerce
+All indexes follow the pattern: `idx_<purpose>` where purpose describes what the index optimizes.
 
-### Processes (10 total)
-By execution model:
-- **Form (2)**: Investor Profile Creation, Savings Goal Planning
-- **SOP (2)**: Project Registration Process, Daily Vehicle Inspection
-- **Knowledge (3)**: Investment Analysis, Credit Score Calculation, Market Intelligence
-- **BPMN (2)**: Daily Fleet Route Planning, Trade Finance Application
-- **Training (1)**: Driver Safety Training
+See `/docs/database-indexes.md` for the complete naming convention documentation.
 
-### AI Agent Status
-- **8 processes** have AI agents attached
-- **1 process** achieved AI promotion (Daily Fleet Route Planning)
-- AI agents are in various stages: manual, assisted, supervised
+## Safety Notes
+
+1. **Always backup your database** before running maintenance scripts in production
+2. These scripts are idempotent - safe to run multiple times
+3. Scripts will skip creating indexes that already exist
+4. Scripts run indexes in background mode to avoid blocking operations
 
 ## Troubleshooting
 
@@ -98,40 +86,11 @@ By execution model:
 # Check if MongoDB is running
 lsof -i :27017
 
-# Check MongoDB logs
-tail -f /usr/local/var/log/mongodb/mongo.log
+# Start MongoDB if needed
+mongod --dbpath ~/data/db --port 27017 &
 ```
 
-### Migration Errors
-1. **"Domain not found"**: Run domain migration first
-2. **"Validation error"**: Check model schemas match mock data structure
-3. **"Duplicate key"**: Scripts clear collections first, but check for unique indexes
-
-### Verification
-Use MongoDB Compass to verify data:
-```bash
-# Install MongoDB Compass
-brew install --cask mongodb-compass
-
-# Connect to database
-# Connection string: mongodb://localhost:27017/spark-ai
-```
-
-## Development Notes
-
-### Adding New Mock Data
-1. Update the appropriate mock data file
-2. Update the corresponding migration script
-3. Test the migration in isolation
-4. Update the master migration script if needed
-
-### Model Changes
-If you modify MongoDB models:
-1. Update the migration scripts to match new schema
-2. Consider data transformation if needed
-3. Test thoroughly before running in production
-
-## Related Files
-- Models: `app/models/`
-- Mock data: `app/lib/mock-data.ts`, `app/lib/sprint2-mock-data/`
-- Database config: `app/lib/database.ts`
+### Script Errors
+- **"Index already exists"** - This is normal, script skips existing indexes
+- **"Collection not found"** - Some collections may not exist yet, this is safe
+- **Connection errors** - Check MongoDB is running and MONGODB_URI is correct

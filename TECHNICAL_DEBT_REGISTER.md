@@ -21,6 +21,10 @@ This register tracks technical debt in the Spark AI Domain System based on actua
 2. **Model Files** - Renamed to match collections
 3. **Import Aliases** - All imports now use correct names (DomainTask, UserTask, etc.)
 4. **Service Layer** - Task Journey Service refactored into 4 focused services
+5. **Schema Complexity** - Unified MasterTask/DomainTask/UserTask into single schema with optional fields
+   - Removed complex snapshot validation logic
+   - Simplified services to use simple object copying
+   - Updated API routes to use unified MasterTask model
 
 ## Priority 0: Critical Issues 🔴
 

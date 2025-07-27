@@ -92,13 +92,7 @@ export function DomainProvider({ children }: { children: ReactNode }) {
 
   // Update current domain in database
   const updateCurrentDomain = async (domainId: string) => {
-    const startTime = Date.now();
-    console.log('[DomainContext] updateCurrentDomain start:', domainId);
-    
-    if (!accessToken || !user) {
-      console.log('[DomainContext] updateCurrentDomain skipped - no accessToken or user');
-      return;
-    }
+    if (!accessToken || !user) return;
     
     try {
       const response = await fetch('/api/user/domains', {
@@ -110,15 +104,12 @@ export function DomainProvider({ children }: { children: ReactNode }) {
         body: JSON.stringify({ currentDomainId: domainId }),
       });
       
-      console.log(`[DomainContext] updateCurrentDomain API call took ${Date.now() - startTime}ms`);
-      
       if (response.ok) {
         // Update user in auth context with new currentDomainId
         const updatedUser = { ...user, currentDomainId: domainId };
         if (updateUser) {
           updateUser(updatedUser);
         }
-        console.log(`[DomainContext] updateCurrentDomain complete (total: ${Date.now() - startTime}ms)`);
       }
     } catch (error) {
       console.error('Failed to update current domain:', error);
@@ -141,9 +132,11 @@ export function DomainProvider({ children }: { children: ReactNode }) {
   }).filter(item => item.domain && item.role);
 
   const setCurrentDomain = (domain: Domain) => {
-    console.log('[DomainContext] setCurrentDomain called for:', domain.slug, domain.id);
-    setCurrentDomainId(domain.id);
-    updateCurrentDomain(domain.id);
+    // Only update if it's actually different
+    if (currentDomainId !== domain.id) {
+      setCurrentDomainId(domain.id);
+      updateCurrentDomain(domain.id);
+    }
   };
 
   const joinDomain = async (domain: Domain, role: Role) => {

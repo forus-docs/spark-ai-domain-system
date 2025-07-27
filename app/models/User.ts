@@ -109,9 +109,11 @@ const UserSchema = new Schema<IUser>({
   timestamps: true,
 });
 
+// Indexes with readable names
 // Compound index to ensure a user can't join the same domain twice
-// This provides database-level protection against duplicate domain joins
-UserSchema.index({ '_id': 1, 'domains.domainId': 1 }, { unique: true });
+UserSchema.index({ '_id': 1, 'domains.domainId': 1 }, { unique: true, name: 'idx_user_domain_unique' });
+UserSchema.index({ 'domains.domain': 1 }, { name: 'idx_user_domains' });
+UserSchema.index({ 'identity.isVerified': 1 }, { name: 'idx_verified' });
 
 // Hash password before saving
 UserSchema.pre('save', async function(next) {

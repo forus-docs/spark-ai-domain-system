@@ -2,6 +2,28 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Critical QMS Rules
+
+1. **QMS Environment - Constant improvement in small steps**
+   - Break ALL changes into small, testable increments
+   - Document every change with clear rationale
+   - No massive refactors without explicit approval
+
+2. **Never overcomplicate stuff**
+   - Always choose the simplest solution that works
+   - Question any complex patterns or abstractions
+   - Favor readability over cleverness
+
+3. **If in doubt, ask**
+   - Ask for clarification before making assumptions
+   - Present options when there are multiple approaches
+   - Flag any decisions that could have significant impact
+
+4. **Wait for explicit instructions**
+   - Do NOT make code changes unless explicitly asked
+   - Treat explanations as educational, not action requests
+   - If something seems broken, describe it and ask before fixing
+
 ## Development Commands
 
 ```bash
@@ -29,19 +51,31 @@ tsx scripts/[filename].ts  # Execute any script in scripts directory
 
 ## Architecture Overview
 
+### Unified Data Schema
+The system uses a **single MasterTask model** for all task-related data:
+- **MasterTask** (template): `domain: ""` or `null`, no `userId`
+- **DomainTask**: `domain: "domainId"`, no `userId` 
+- **UserTask**: Both `domain` and `userId` populated
+- All use the same MasterTask collection with different field combinations
+
+### Simplified Architecture (January 2025)
+The system has been simplified from a 5-level hierarchy to 3 levels:
+
+```
+MasterTask → DomainTask → TaskExecution (with messages)
+```
+
+**Key Changes:**
+- UserTask and TaskExecution merged into single TaskExecution model
+- TaskExecution contains complete task snapshot at assignment time
+- No intermediate UserTask lookup required
+- Status tracking (assigned, in_progress, completed) built into TaskExecution
+
 ### QMS-Compliant Data Flow
-The system implements immutable snapshots for Quality Management System compliance:
-
-```
-MasterTask → DomainTask → UserTask → TaskExecution
-```
-
 Each arrow represents a COMPLETE data copy, not a reference. This ensures:
 - Changes require explicit approval at each level
 - Running tasks cannot change mid-execution  
 - Complete audit trail for compliance
-
-**Important**: TaskExecutions only track the immediate source (DomainTask), not MasterTask, since all data is available in the UserTask snapshot.
 
 ### Core Services Architecture
 
@@ -57,22 +91,22 @@ Each arrow represents a COMPLETE data copy, not a reference. This ensures:
       /master-tasks/[id]       # Domain-scoped master task access
   
   /models                       # Mongoose schemas
-    MasterTask.ts              # Enterprise task templates with SOPs
-    DomainTask.ts              # Domain-adopted tasks (with masterTaskSnapshot)
-    UserTask.ts                # User assignments (with executionData)
-    TaskExecution.ts           # Active execution sessions (no masterTask fields)
+    MasterTask.ts              # Unified schema for all task types
+    TaskExecution.ts           # Combined user assignment + execution
     ExecutionMessage.ts        # Chat messages within executions
+    User.ts                    # User accounts with nested identity
+    Domain.ts                  # Domain configurations
     
   /services                     # Business logic
     task-executions.ts         # TaskExecutionService, ExecutionMessageService
     domain-adoption.service.ts # QMS-compliant adoption logic
     
-  /lib/services                # Refactored services (facade pattern)
+  /lib/services                # Legacy services (being phased out)
     task-journey.service.ts    # Facade for task operations
-    task-assignment.service.ts # Task assignment logic
-    task-completion.service.ts # Task completion logic
-    task-display.service.ts    # Task display formatting
-    task-interaction.service.ts # Task interaction operations
+    task-assignment.service.ts # Task assignment logic (stub)
+    task-completion.service.ts # Task completion logic (stub)
+    task-display.service.ts    # Task display formatting (stub)
+    task-interaction.service.ts # Task interaction operations (stub)
     
   /lib/auth
     jwt.ts                     # JWT token management
@@ -98,7 +132,7 @@ Each arrow represents a COMPLETE data copy, not a reference. This ensures:
 - Access tokens: 15 minutes expiry
 - Refresh tokens: 7 days expiry (httpOnly cookie)
 - Token rotation on refresh
-- NO localStorage usage - all auth via HTTP-only cookies
+- Access token stored in localStorage
 
 #### Domain Access Control
 - All domain-specific resources require membership verification
@@ -115,29 +149,37 @@ user.identity.verifiedAt
 user.identity.verificationType
 ```
 
-**Task Snapshot Architecture:**
-- DomainTask contains `masterTaskSnapshot` with ALL execution data
-- UserTask contains `taskSnapshot.executionData` with ALL execution fields
-- TaskExecution uses ONLY UserTask snapshot data (no masterTask references)
-
-**TaskExecution Structure (Updated):**
+**TaskExecution Structure:**
 ```typescript
 {
-  executionId: string,
-  userId: string,
-  title: string,
-  domainTaskId?: string,      // Reference to source DomainTask
-  executionModel?: string,
-  userTaskId?: string,        // Reference to UserTask
-  // NO masterTaskId or masterTaskName fields
+  // Identity
+  executionId: string
+  userId: ObjectId
+  domainId: ObjectId
+  domainTaskId: ObjectId
+  
+  // Complete task snapshot
+  taskSnapshot: {
+    title, description, taskType, executionModel,
+    procedures, formSchema, requiredParameters, etc.
+  }
+  
+  // Execution state
+  status: 'assigned' | 'in_progress' | 'completed' | 'failed'
+  assignedAt: Date
+  startedAt?: Date
+  completedAt?: Date
+  
+  // Messages
+  messages: ObjectId[]
 }
 ```
 
 **Domain Membership:**
 ```typescript
 user.domains: [{
-  domainId: string,      // Reference to domain
-  role: string | null,   // User's role in domain (null = no role selected)
+  domain: ObjectId,      // Reference to domain
+  role: ObjectId,        // User's role in domain
   joinedAt: Date
 }]
 ```
@@ -163,22 +205,31 @@ Database: `spark-ai` on port 27017
 ### Core Collections
 - `users` - User accounts with nested identity structure
 - `domains` - Domain configurations with invite codes
-- `masterTasks` - Task templates with SOPs and execution models
-- `domainTasks` - Domain-adopted tasks with complete snapshots
-- `userTasks` - User assignments with execution data
-- `taskExecutions` - Active execution sessions (domainTaskId field only)
+- `masterTasks` - Unified collection for all task types (master/domain/user)
+- `taskExecutions` - Combined user assignment + execution sessions
 - `executionMessages` - Chat messages within executions
 - `invites` - Domain invitation management
 
+### Collection Queries
+```typescript
+// Find MasterTasks (templates)
+{ isActive: true, $or: [{ domain: { $exists: false } }, { domain: "" }, { domain: null }] }
+
+// Find DomainTasks
+{ domain: "domainId", userId: { $exists: false } }
+
+// Find UserTasks (legacy - being phased out)
+{ domain: "domainId", userId: "userId" }
+```
+
 ### Index Strategy
 Key indexes for performance:
-- `domainTasks`: `{ domain: 1, isActive: 1 }`
-- `userTasks`: `{ userId: 1, isActive: 1 }`
-- `taskExecutions`: `{ userId: 1, createdAt: -1 }`, `{ domainTaskId: 1 }`
+- `masterTasks`: `{ domain: 1, isActive: 1 }`, `{ masterTaskId: 1 }`
+- `taskExecutions`: `{ userId: 1, createdAt: -1 }`, `{ domainId: 1, userId: 1 }`
 
 ## API Integration Points
 
-### Task Adoption (Domain Admin Only)
+### Task Adoption (Domain Admin)
 ```
 POST /api/domains/[domainId]/adopt-task
 Body: { masterTaskId, customizations? }
@@ -191,17 +242,9 @@ POST /api/domain-tasks/assign
 Body: { taskId }
 Authorization: Bearer <token>
 ```
-- Verifies domain membership before assignment
-- Returns: `{ success: true, userTaskId: string }`
-
-### Task Execution (QMS-Compliant)
-```
-POST /api/domain-tasks/[userTaskId]/task-execution
-Authorization: Bearer <token>
-```
-- Verifies domain membership via DomainTask lookup
-- Returns error if UserTask lacks executionData
-- Response: `{ executionId, isNew, task: { title, executionModel, aiAgentRole } }`
+- Creates TaskExecution directly
+- Returns: `{ success: true, executionId: string }`
+- Navigate to `/chat/{executionId}` immediately
 
 ### Chat Streaming
 ```
@@ -210,25 +253,24 @@ Body: {
   messages: Message[],
   processName: string,
   executionModel: string,
-  executionId?: string 
+  executionId: string  // Required - no ad-hoc execution creation
 }
 Headers: { Authorization: Bearer <token> }
 Response: Server-Sent Events stream
 ```
-Note: No longer requires masterTaskId or domainId
 
-### Domain-Scoped Master Task Access
+### Get Available Tasks for Adoption
 ```
-GET /api/domains/[domainId]/master-tasks/[masterTaskId]
+GET /api/domains/[domainId]/adopt-task
 Authorization: Bearer <token>
 ```
-- Verifies domain membership
-- Returns 403 if not a member
+- Returns MasterTasks available for domain adoption
+- Filters out already adopted tasks
 
 ## AI Context Management
 
 ### System Prompt Construction
-Built from UserTask snapshots in this order:
+Built from TaskExecution snapshot in this order:
 1. Base system prompt or custom prompt
 2. Standard Operating Procedure (if exists)
 3. Checklist items (if no SOP)
@@ -236,8 +278,6 @@ Built from UserTask snapshots in this order:
 5. Introduction message
 6. Task context (title, description, type)
 7. Domain customizations
-
-**Important**: The system prompt is built once during TaskExecution creation and stored. Chat streaming uses this pre-built prompt.
 
 ### SSE Streaming Pattern
 ```typescript
@@ -248,7 +288,7 @@ const eventSource = new SSE('/api/chat/stream', {
     messages,
     processName,
     executionModel,
-    executionId
+    executionId  // Required
   })
 });
 
@@ -266,31 +306,32 @@ res.write(`data: ${JSON.stringify({ chunk })}\n\n`);
 
 ### User State Persistence
 1. **MongoDB**: Source of truth for user data
-2. **JWT Tokens**: Session management (HTTP-only cookies)
-3. **React Context**: Runtime state management
-4. **NO localStorage**: All persistence is server-side only
+2. **JWT Tokens**: Session management
+3. **localStorage**: `spark-user`, `spark-refresh-token`
+4. **React Context**: Runtime state management
 
 ### Task State Flow
-1. **Domain Adoption**: Creates DomainTask with complete MasterTask snapshot
-2. **User Assignment**: Creates UserTask with complete DomainTask snapshot
-3. **Task Execution**: Uses ONLY UserTask snapshot data
+1. **Domain Adoption**: Creates DomainTask entry with complete MasterTask snapshot
+2. **User Assignment**: Creates TaskExecution with complete task snapshot
+3. **Chat Execution**: Uses TaskExecution snapshot data directly
 
 ### Domain Context
 - Current domain stored in `user.currentDomainId`
 - Domain switching updates user document
 - Most operations require active domain context
+- Domain.id can be either ObjectId or slug depending on context
 
 ## Critical Implementation Rules
 
-1. **NO localStorage EVER**: All persistence must be server-side only. Use HTTP-only cookies for auth.
-2. **No Dynamic Fetching**: TaskExecutions must NEVER fetch from MasterTask/DomainTask
-3. **Complete Snapshots**: Each level must copy ALL data needed for downstream
-4. **User Verification**: Always check `user.identity.isVerified` (nested structure)
-5. **Domain Access**: Verify membership before ANY domain-specific operation
-6. **QMS Compliance**: New tasks require `isQMSCompliant: true` flag
-7. **Model Imports**: Use exact model names (e.g., `import DomainTask from '@/app/models/DomainTask'`)
-8. **Error Responses**: Use consistent format: `{ error: string }`
-9. **No MasterTask Tracking**: TaskExecutions only reference DomainTask and UserTask
+1. **No Dynamic Fetching**: TaskExecutions must NEVER fetch from MasterTask/DomainTask
+2. **Complete Snapshots**: Each level must copy ALL data needed for downstream
+3. **User Verification**: Always check `user.identity.isVerified` (nested structure)
+4. **Domain Access**: Verify membership before ANY domain-specific operation
+5. **QMS Compliance**: New tasks require `isQMSCompliant: true` flag
+6. **Model Imports**: Use exact model names (e.g., `import MasterTask from '@/app/models/MasterTask'`)
+7. **Error Responses**: Use consistent format: `{ error: string }`
+8. **Direct Navigation**: After assignment, navigate directly to `/chat/{executionId}`
+9. **Unified Schema**: Remember MasterTask collection stores all task types
 
 ## Common Patterns & Solutions
 
@@ -298,13 +339,9 @@ res.write(`data: ${JSON.stringify({ chunk })}\n\n`);
 ```typescript
 // 1. User clicks unassigned task
 POST /api/domain-tasks/assign
-Response: { success: true, userTaskId: "..." }
+Response: { success: true, executionId: "..." }
 
-// 2. Create execution immediately
-POST /api/domain-tasks/[userTaskId]/task-execution
-Response: { executionId: "...", isNew: true, task: {...} }
-
-// 3. Navigate to chat
+// 2. Navigate directly to chat
 router.push(`/chat/${executionId}`)
 ```
 
@@ -332,13 +369,16 @@ if (!accessCheck.isValid) {
 }
 ```
 
-### Type Assertion for Service Results
+### MasterTask Query Patterns
 ```typescript
-// When service returns additional fields not in type definition
-const successResult = result as { success: true; userTask: any };
-if (!successResult.userTask) {
-  // Handle error
-}
+// Find true MasterTasks (templates)
+{ isActive: true, $or: [{ domain: { $exists: false } }, { domain: "" }, { domain: null }] }
+
+// Find DomainTasks for a domain
+{ domain: domainId, userId: { $exists: false } }
+
+// Check if task adopted by domain
+{ domain: domainId, masterTaskId: masterTaskId }
 ```
 
 ## MongoDB MCP Tools
@@ -362,10 +402,11 @@ Available tools (prefix: `mcp__mongodb__`):
 
 ## Debug & Development Tips
 
-### Current Issues (See TECHNICAL_DEBT_REGISTER.md)
+### Current Technical Debt
 - Excessive debug logging (remove before production)
 - Zero test coverage
 - Large components (chat-interface-v2.tsx: 1000+ lines)
+- Legacy service stubs in /lib/services being phased out
 
 ### VS Code Debug Configuration
 - Port: 3001
@@ -378,26 +419,49 @@ Available tools (prefix: `mcp__mongodb__`):
 npm run typecheck
 
 # Find specific task in DB
-mcp__mongodb__find { "collection": "domainTasks", "filter": { "_id": "..." } }
+mcp__mongodb__find { "collection": "masterTasks", "filter": { "_id": "..." } }
 
 # Check user's domains
 mcp__mongodb__find { "collection": "users", "filter": { "_id": "..." }, "projection": { "domains": 1 } }
 
-# Check task execution fields
-mcp__mongodb__find { "collection": "taskexecutions", "filter": { "executionId": "..." } }
+# Check task executions
+mcp__mongodb__find { "collection": "taskExecutions", "filter": { "userId": "..." } }
+
+# Verify MasterTask availability
+mcp__mongodb__find { "collection": "masterTasks", "filter": { "isActive": true, "domain": "" } }
 ```
 
 ## Recent Architecture Changes
 
 ### January 2025 Updates
-1. **Removed MasterTask Tracking**: TaskExecutions no longer store masterTaskId or masterTaskName
-2. **Enhanced Domain Security**: All domain-specific operations now verify membership
-3. **Simplified Chat API**: Chat streaming no longer requires masterTaskId parameter
-4. **Fixed Process Routes**: Replaced hardcoded mock data with proper API calls
-5. **NO localStorage**: Removed all localStorage usage - server-side persistence only
+1. **Simplified Architecture**: Merged UserTask + TaskExecution into single model
+2. **Direct Assignment Flow**: Task assignment creates execution immediately
+3. **Enhanced Domain Security**: All domain-specific operations verify membership
+4. **Unified Schema**: All task types use MasterTask collection
+5. **Library View Fix**: Corrected queries for MasterTask filtering
 
 ## Early Stage Context
 - ~12 records in database
 - Not deployed to staging yet
 - Focus on direct fixes over complex migrations
 - Simplicity preferred over premature optimization
+
+## Form-js Integration
+- Installed `@bpmn-io/form-js` for form rendering and validation
+- Conversational UI for form completion with document extraction
+- Form schemas stored in `MasterTask.formSchema`
+- Custom `ConversationalFormRenderer` service for chat-based form filling
+
+## UI Component Patterns
+
+### Library View (MasterTask Display)
+- Shows MasterTask templates without execution state
+- Displays all available fields dynamically
+- No state simulation - templates are stateless
+- Detail view adapts to show whatever fields exist in the data
+
+### Task Assignment
+- Domain tasks shown in card view
+- Click to assign creates TaskExecution immediately
+- Direct navigation to chat interface
+- No intermediate confirmation steps

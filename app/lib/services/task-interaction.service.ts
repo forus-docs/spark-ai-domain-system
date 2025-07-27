@@ -1,5 +1,4 @@
-import DomainTask from '@/app/models/DomainTask';
-import UserTask from '@/app/models/UserTask';
+import TaskExecution from '@/app/models/TaskExecution';
 import { connectToDatabase } from '@/app/lib/database';
 
 export class TaskInteractionService {
@@ -8,62 +7,70 @@ export class TaskInteractionService {
    * UPDATE: No automatic task assignment - all tasks are user-initiated
    */
   static async initializeUserTasks(userId: string): Promise<void> {
+    // No-op: Users manually assign tasks to themselves
     await connectToDatabase();
-
-    // No automatic task assignments
-    // Users will see all tasks as unassigned and can choose what to engage with
-    console.log(`User ${userId} initialized - no tasks auto-assigned`);
+    console.log('User tasks initialization - no automatic assignment for user:', userId);
   }
 
   /**
-   * Toggle task visibility
+   * Toggle task execution visibility
+   * TODO: Implement if needed with new model
    */
-  static async toggleTaskVisibility(userId: string, userTaskId: string): Promise<{ success: boolean; error?: string }> {
+  static async toggleTaskVisibility(taskExecutionId: string, userId: string): Promise<{ success: boolean; error?: string }> {
     await connectToDatabase();
-
+    
     try {
-      const userTask = await UserTask.findOne({
-        _id: userTaskId,
+      const taskExecution = await TaskExecution.findOne({
+        executionId: taskExecutionId,
         userId
       });
 
-      if (!userTask) {
-        return { success: false, error: 'User task not found' };
+      if (!taskExecution) {
+        return { success: false, error: 'Task execution not found' };
       }
 
-      // Check if task can be hidden
-      const domainTask = await DomainTask.findById(userTask.domainTaskId);
-      if (!domainTask?.canHide) {
-        return { success: false, error: 'This task cannot be hidden' };
+      // Toggle hidden state in metadata
+      if (!taskExecution.metadata) {
+        taskExecution.metadata = {};
       }
-
-      userTask.isHidden = !userTask.isHidden;
-      userTask.hiddenAt = userTask.isHidden ? new Date() : undefined;
-      await userTask.save();
-
+      taskExecution.metadata.isHidden = !taskExecution.metadata.isHidden;
+      
+      await taskExecution.save();
+      
       return { success: true };
     } catch (error) {
       console.error('Error toggling task visibility:', error);
-      return { success: false, error: 'Failed to toggle visibility' };
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Failed to toggle visibility' 
+      };
     }
   }
 
   /**
-   * Mark task as viewed
+   * Track task execution view
    */
-  static async markTaskViewed(userId: string, userTaskId: string): Promise<void> {
+  static async trackTaskView(taskExecutionId: string, userId: string): Promise<void> {
     await connectToDatabase();
-
+    
     try {
-      await UserTask.findOneAndUpdate(
-        { _id: userTaskId, userId },
-        {
-          $set: { lastViewedAt: new Date() },
-          $inc: { viewCount: 1 }
+      const taskExecution = await TaskExecution.findOne({
+        executionId: taskExecutionId,
+        userId
+      });
+
+      if (taskExecution) {
+        // Track view in metadata
+        if (!taskExecution.metadata) {
+          taskExecution.metadata = {};
         }
-      );
+        taskExecution.metadata.lastViewedAt = new Date();
+        taskExecution.metadata.viewCount = (taskExecution.metadata.viewCount || 0) + 1;
+        
+        await taskExecution.save();
+      }
     } catch (error) {
-      console.error('Error marking task as viewed:', error);
+      console.error('Error tracking task view:', error);
     }
   }
 
@@ -73,17 +80,7 @@ export class TaskInteractionService {
    */
   static async assignDomainOnboardingTasks(userId: string, domainId: string): Promise<void> {
     await connectToDatabase();
-
-    try {
-      // All domains now use user-initiated assignment
-      // No automatic task assignment when joining a domain
-      console.log(`User joined domain ${domainId} - tasks will be user-initiated`);
-      
-      // We could still assign special system tasks here if needed in the future
-      // For example: welcome messages, tutorials, etc.
-      
-    } catch (error) {
-      console.error('Error in assignDomainOnboardingTasks:', error);
-    }
+    // No automatic task assignment when joining a domain
+    console.log(`User joined domain ${domainId} - tasks will be user-initiated`);
   }
 }

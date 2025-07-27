@@ -44,16 +44,26 @@ export function RoleModal({ isOpen, onClose, role, domainName }: RoleModalProps)
           "max-h-[90vh] md:max-h-[80vh]",
           "flex flex-col"
         )}>
-          {/* Header */}
-          <div className="flex items-center justify-between p-4 border-b border-gray-200">
-            <h2 className="text-lg font-semibold text-gray-900">{role.name}</h2>
-            <button
-              onClick={onClose}
-              className="p-1.5 hover:bg-gray-100 rounded-md transition-colors"
-              aria-label="Close modal"
-            >
-              <X className="w-5 h-5 text-gray-600" />
-            </button>
+          {/* Header - Same height as app bar */}
+          <div className="h-14 border-b border-gray-200 flex items-center px-3">
+            <div className="flex items-center justify-between w-full">
+              {/* Close button - Aligned with hamburger */}
+              <button
+                onClick={onClose}
+                className="p-1.5 hover:bg-gray-100 rounded-md transition-colors"
+                aria-label="Close modal"
+              >
+                <X className="w-5 h-5 text-gray-600" />
+              </button>
+
+              {/* Title */}
+              <div className="flex-1 flex items-center px-3">
+                <h2 className="text-base font-semibold text-gray-900">{role.name}</h2>
+              </div>
+
+              {/* Empty space for balance */}
+              <div className="w-11"></div>
+            </div>
           </div>
 
           {/* Content */}

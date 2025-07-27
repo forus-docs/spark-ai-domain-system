@@ -3,7 +3,7 @@ import { verifyAccessToken } from '@/app/lib/auth/jwt';
 import { TaskExecutionService, ExecutionMessageService } from '@/app/services/task-executions';
 import { connectToDatabase } from '@/app/lib/database';
 import mongoose from 'mongoose';
-import DomainTask from '@/app/models/DomainTask';
+import MasterTask from '@/app/models/MasterTask';
 
 export const dynamic = 'force-dynamic';
 
@@ -47,17 +47,21 @@ export async function GET(request: NextRequest) {
       offset
     );
 
+    // If no executions found, return empty array early
+    if (!executionsWithDomain || executionsWithDomain.length === 0) {
+      return NextResponse.json({ executions: [] });
+    }
+
     // Add domain information to all executions
-    const DomainTask = mongoose.model('DomainTask');
-    
     // Get all unique domainTaskIds
     const domainTaskIds = [...new Set(executionsWithDomain
       .filter(exec => exec.domainTaskId)
       .map(exec => exec.domainTaskId))];
     
-    // Fetch domain information for these tasks
-    const domainTasks = await DomainTask.find({
-      _id: { $in: domainTaskIds }
+    // Fetch domain information for these tasks (domain tasks in unified schema)
+    const domainTasks = await MasterTask.find({
+      _id: { $in: domainTaskIds },
+      domain: { $ne: '' } // Ensure it's a domain task
     }).select('_id domain').lean();
     
     // Create a map of domainTaskId to domain
@@ -119,7 +123,7 @@ export async function DELETE(request: NextRequest) {
   try {
     // Verify ownership
     const taskExecution = await TaskExecutionService.getTaskExecution(executionId);
-    if (!taskExecution || taskExecution.userId !== userId) {
+    if (!taskExecution || taskExecution.userId.toString() !== userId) {
       return NextResponse.json(
         { error: 'Task execution not found' },
         { status: 404 }

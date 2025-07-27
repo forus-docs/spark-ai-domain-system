@@ -126,7 +126,11 @@ const DomainSchema = new Schema<IDomain>(
 );
 
 // Add text index for search
-DomainSchema.index({ name: 'text', description: 'text' });
+// Indexes with readable names
+DomainSchema.index({ name: 'text', description: 'text' }, { name: 'idx_text_search' });
+DomainSchema.index({ slug: 1 }, { name: 'idx_slug' });
+DomainSchema.index({ active: 1 }, { name: 'idx_active' });
+DomainSchema.index({ createdBy: 1 }, { name: 'idx_creator' });
 
 const Domain = mongoose.models.Domain || mongoose.model<IDomain>('Domain', DomainSchema);
 

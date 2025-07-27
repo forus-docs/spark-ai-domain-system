@@ -5,6 +5,7 @@ export const dynamic = 'force-dynamic';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/app/contexts/auth-context';
+import { useDomain } from '@/app/contexts/domain-context';
 import { ChatInterfaceV2 } from '@/app/components/chat-interface-v2';
 import { TaskExecutionService } from '@/app/services/task-executions';
 
@@ -17,6 +18,7 @@ interface PageProps {
 export default function ChatPage({ params }: PageProps) {
   const router = useRouter();
   const { user, accessToken } = useAuth();
+  const { currentDomain } = useDomain();
   const [taskExecution, setTaskExecution] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -46,7 +48,7 @@ export default function ChatPage({ params }: PageProps) {
           if (response.status === 404) {
             console.error('Task execution not found');
           }
-          router.push('/');
+          router.push(currentDomain?.slug ? `/${currentDomain.slug}` : '/');
           return;
         }
         
@@ -56,7 +58,7 @@ export default function ChatPage({ params }: PageProps) {
         setTaskExecution(data);
       } catch (error) {
         console.error('Error loading task execution:', error);
-        router.push('/');
+        router.push(currentDomain?.slug ? `/${currentDomain.slug}` : '/');
       } finally {
         setIsLoading(false);
       }
@@ -83,7 +85,7 @@ export default function ChatPage({ params }: PageProps) {
       masterTaskName={taskExecution.title || 'Task Execution'}
       executionModel={taskExecution.executionModel}
       userTaskId={taskExecution.userTaskId}
-      onClose={() => router.push('/')}
+      onClose={() => router.push(currentDomain?.slug ? `/${currentDomain.slug}` : '/')}
       accessToken={accessToken || undefined}
     />
   );

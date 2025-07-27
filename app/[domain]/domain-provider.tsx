@@ -58,8 +58,10 @@ export function DomainProvider({ children, domainSlug }: DomainProviderProps) {
       return;
     }
 
-    // Set this as the current domain
-    setCurrentDomain(domain);
+    // Set this as the current domain only if it's different
+    if (domain) {
+      setCurrentDomain(domain);
+    }
     setIsValidating(false);
   }, [authLoading, domainLoading, user, domains, domainSlug, router, setCurrentDomain]);
 

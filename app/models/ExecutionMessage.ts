@@ -72,7 +72,6 @@ const ExecutionMessageSchema = new Schema<IExecutionMessage>(
     executionId: {
       type: String,
       required: true,
-      index: true,
     },
     parentMessageId: {
       type: String,
@@ -184,10 +183,11 @@ ExecutionMessageSchema.pre('save', function (next) {
   next();
 });
 
-// Indexes for performance
-ExecutionMessageSchema.index({ executionId: 1, createdAt: 1 });
-ExecutionMessageSchema.index({ userId: 1, createdAt: -1 });
-ExecutionMessageSchema.index({ parentMessageId: 1 });
+// Indexes with readable names
+ExecutionMessageSchema.index({ executionId: 1, createdAt: 1 }, { name: 'idx_execution_time' });
+ExecutionMessageSchema.index({ userId: 1, createdAt: -1 }, { name: 'idx_user_recent' });
+ExecutionMessageSchema.index({ parentMessageId: 1 }, { name: 'idx_parent_message' });
+ExecutionMessageSchema.index({ executionId: 1, role: 1 }, { name: 'idx_execution_role' });
 
 const ExecutionMessage = mongoose.models.ExecutionMessage || mongoose.model<IExecutionMessage>('ExecutionMessage', ExecutionMessageSchema, 'executionMessages');
 

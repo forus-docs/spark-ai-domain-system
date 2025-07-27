@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/app/lib/database';
-import UserTask from '@/app/models/UserTask';
+import MasterTask from '@/app/models/MasterTask';
 import User from '@/app/models/User';
 import jwt from 'jsonwebtoken';
 
@@ -46,39 +46,39 @@ export async function GET(request: NextRequest) {
       console.log('User domains:', user.domains);
     }
     
-    // Get ALL UserPosts first
-    const allUserPosts = await UserTask.find({}).limit(5);
-    console.log('\n=== ALL UserPosts (sample) ===');
-    allUserPosts.forEach((up, index) => {
-      console.log(`UserPost ${index + 1}:`);
-      console.log('  _id:', up._id);
-      console.log('  userId:', up.userId);
-      console.log('  userId type:', typeof up.userId);
-      console.log('  postId:', up.postId);
-      console.log('  title:', up.postSnapshot?.title);
+    // Get ALL UserTasks first
+    const allUserTasks = await MasterTask.find({ userId: { $exists: true } }).limit(5);
+    console.log('\n=== ALL UserTasks (sample) ===');
+    allUserTasks.forEach((task, index) => {
+      console.log(`UserTask ${index + 1}:`);
+      console.log('  _id:', task._id);
+      console.log('  userId:', task.userId);
+      console.log('  userId type:', typeof task.userId);
+      console.log('  domainTaskId:', task.domainTaskId);
+      console.log('  title:', task.title);
     });
     
     // Now query for this specific user
     console.log('\n=== Querying for specific user ===');
     console.log('Query: { userId:', userId, '}');
     
-    const userPosts = await UserTask.find({ userId: userId });
-    console.log('UserPosts found for this user:', userPosts.length);
+    const userTasks = await MasterTask.find({ userId: userId });
+    console.log('UserTasks found for this user:', userTasks.length);
     
     // Try with string conversion
-    const userPostsString = await UserTask.find({ userId: userId.toString() });
-    console.log('UserPosts with toString():', userPostsString.length);
+    const userTasksString = await MasterTask.find({ userId: userId.toString() });
+    console.log('UserTasks with toString():', userTasksString.length);
     
     // Try to find by exact match from sample
-    if (allUserPosts.length > 0) {
-      const sampleUserId = allUserPosts[0].userId;
+    if (allUserTasks.length > 0) {
+      const sampleUserId = allUserTasks[0].userId;
       console.log('\n=== Testing with sample userId ===');
       console.log('Sample userId:', sampleUserId);
       console.log('Does it match our userId?', sampleUserId === userId);
       console.log('Does it match with toString?', sampleUserId === userId.toString());
       
-      const testQuery = await UserTask.find({ userId: sampleUserId });
-      console.log('UserPosts found with sample userId:', testQuery.length);
+      const testQuery = await MasterTask.find({ userId: sampleUserId });
+      console.log('UserTasks found with sample userId:', testQuery.length);
     }
     
     return NextResponse.json({
@@ -87,15 +87,15 @@ export async function GET(request: NextRequest) {
         userIdType: typeof userId,
         userExists: !!user,
         userEmail: user?.email,
-        totalUserPosts: allUserPosts.length,
-        userPostsForUser: userPosts.length,
-        sampleUserPost: allUserPosts[0] ? {
-          userId: allUserPosts[0].userId,
-          userIdType: typeof allUserPosts[0].userId,
-          title: allUserPosts[0].postSnapshot?.title
+        totalUserTasks: allUserTasks.length,
+        userTasksForUser: userTasks.length,
+        sampleUserTask: allUserTasks[0] ? {
+          userId: allUserTasks[0].userId,
+          userIdType: typeof allUserTasks[0].userId,
+          title: allUserTasks[0].title
         } : null
       },
-      userPosts: userPosts
+      userTasks: userTasks
     });
     
   } catch (error) {

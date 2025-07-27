@@ -4,10 +4,12 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/app/contexts/auth-context';
+import { useDomain } from '@/app/contexts/domain-context';
 
 export default function LoginForm() {
   const router = useRouter();
   const { login, error } = useAuth();
+  const { currentDomain } = useDomain();
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
     email: '',
@@ -20,7 +22,8 @@ export default function LoginForm() {
 
     try {
       await login(formData.email, formData.password);
-      router.push('/');
+      // Redirect to domain-specific home if domain is set, otherwise to domains page
+      router.push(currentDomain?.slug ? `/${currentDomain.slug}` : '/domains');
     } catch (err) {
       // Error is handled by auth context
     } finally {
@@ -85,7 +88,7 @@ export default function LoginForm() {
         <div className="mt-6 text-center">
           <p className="text-sm text-gray-600">
             Don&apos;t have an account?{' '}
-            <Link href="/register" className="text-green-600 hover:text-green-700 font-medium">
+            <Link href="/auth?mode=register" className="text-green-600 hover:text-green-700 font-medium">
               Sign up
             </Link>
           </p>

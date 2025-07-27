@@ -8,8 +8,22 @@ import { useDomain } from '@/app/contexts/domain-context';
 import { useAuth } from '@/app/contexts/auth-context';
 import { ChevronRight, Sparkles, RefreshCw, Bug } from 'lucide-react';
 import { PostCard } from '@/app/components/post-card';
+import { ExecutionCard } from '@/app/components/execution-card';
 import { UserTaskDisplay, MasterTask } from '@/app/types/post.types';
 import { DebugPopup } from '@/app/components/debug-popup';
+
+interface RecentExecution {
+  executionId: string;
+  title: string;
+  updatedAt: string;
+  createdAt: string;
+  lastMessage?: {
+    content: string;
+    role: string;
+    createdAt: string;
+  } | null;
+  messageCount: number;
+}
 
 function HomePage() {
   const router = useRouter();
@@ -17,14 +31,9 @@ function HomePage() {
   const { user, accessToken } = useAuth();
   const [userPosts, setUserPosts] = useState<UserTaskDisplay[]>([]);
   const [domainPosts, setDomainPosts] = useState<MasterTask[]>([]);
+  const [recentExecutions, setRecentExecutions] = useState<RecentExecution[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showDebug, setShowDebug] = useState(false);
-  
-  console.log('[HomePage] Render:', {
-    hasUser: !!user,
-    isDomainLoading,
-    currentDomain: currentDomain?.slug
-  });
   
   // Compute unassigned posts from userPosts and domainPosts
   const unassignedPosts = domainPosts.filter((dt: MasterTask) => {
@@ -35,11 +44,16 @@ function HomePage() {
   
 
   useEffect(() => {
-    // Only redirect if user is authenticated, domains are loaded, and no domain is selected
-    // This prevents redirect on refresh when domains are still loading
-    if (user && !isDomainLoading && !currentDomain) {
-      console.log('[HomePage] Redirecting to /domains - no currentDomain selected');
-      router.push('/domains');
+    // Only redirect if user is authenticated and domains are loaded
+    if (user && !isDomainLoading) {
+      if (!currentDomain) {
+        console.log('[HomePage] Redirecting to /domains - no currentDomain selected');
+        router.push('/domains');
+      } else if (currentDomain.slug) {
+        // Redirect to domain-specific home page
+        console.log('[HomePage] Redirecting to domain-specific home:', `/${currentDomain.slug}`);
+        router.push(`/${currentDomain.slug}`);
+      }
     }
   }, [user, currentDomain, isDomainLoading, router]);
 
@@ -125,6 +139,37 @@ function HomePage() {
     };
 
     fetchDomainTasks();
+  }, [user, accessToken, currentDomain]);
+
+  // Fetch recent executions
+  useEffect(() => {
+    if (!user || !accessToken || !currentDomain) return;
+
+    const fetchRecentExecutions = async () => {
+      try {
+        const params = new URLSearchParams({
+          domain: currentDomain.id
+        });
+        
+        const response = await fetch(`/api/task-executions/recent?${params}`, {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+          },
+        });
+
+        if (!response.ok) {
+          console.error('[HomePage] Failed to fetch recent executions:', response.status);
+          return;
+        }
+        
+        const data = await response.json();
+        setRecentExecutions(data.executions || []);
+      } catch (error) {
+        console.error('[HomePage] Error fetching recent executions:', error);
+      }
+    };
+
+    fetchRecentExecutions();
   }, [user, accessToken, currentDomain]);
 
   // Show loading state while contexts are initializing
@@ -247,6 +292,22 @@ function HomePage() {
         </div>
       ) : (
         <div className="space-y-6">
+          {/* Recent Conversations Section */}
+          {recentExecutions.length > 0 && (
+            <div>
+              <h2 className="text-lg font-medium text-gray-900 mb-3">Recent Conversations</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {recentExecutions.map(execution => (
+                  <ExecutionCard
+                    key={execution.executionId}
+                    execution={execution}
+                    onClick={() => router.push(`/chat/${execution.executionId}`)}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Your Tasks Section */}
           {userPosts.length > 0 && (
             <div>

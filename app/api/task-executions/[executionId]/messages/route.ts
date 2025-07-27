@@ -38,7 +38,7 @@ export async function GET(
   try {
     // Verify ownership
     const taskExecution = await TaskExecutionService.getTaskExecution(executionId);
-    if (!taskExecution || taskExecution.userId !== userId) {
+    if (!taskExecution || taskExecution.userId.toString() !== userId) {
       return NextResponse.json(
         { error: 'Task execution not found' },
         { status: 404 }
@@ -51,9 +51,9 @@ export async function GET(
       messages,
       taskExecution: {
         executionId: taskExecution.executionId,
-        title: taskExecution.title,
+        title: taskExecution.taskSnapshot?.title || 'Task',
         domainTaskId: taskExecution.domainTaskId,
-        executionModel: taskExecution.executionModel,
+        executionModel: taskExecution.taskSnapshot?.executionModel,
       },
     });
   } catch (error) {

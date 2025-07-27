@@ -16,14 +16,26 @@ import { FilePreviewItem } from './file-preview-item';
 import { StructuredDataDisplay } from './structured-data-display';
 import { ForusSpinner } from './forus-spinner';
 import { AnimatedCounter } from './animated-counter';
+import { FormMessage, formJsStyles } from './form-message';
+import { ConversationalFormRenderer, type FormSchema } from '@/app/lib/services/conversational-form.service';
 
 interface Message {
   id: string;
-  role: 'user' | 'assistant';
+  role: 'user' | 'assistant' | 'system';
   content: string;
   timestamp: Date;
   isStreaming?: boolean;
   extractedData?: any;
+  // Form-specific fields
+  type?: 'text' | 'form-field' | 'form-review' | 'file-upload';
+  fieldKey?: string;
+  fieldValue?: any;
+  schema?: FormSchema;
+  data?: Record<string, any>;
+  actions?: Array<{
+    label: string;
+    value: any;
+  }>;
 }
 
 interface ChatInterfaceProps {
@@ -73,6 +85,7 @@ export function ChatInterfaceV2({
   const [llmProvider] = useState('Gemini 1.5 Flash');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const sseRef = useRef<SSE | null>(null);
+  const formRendererRef = useRef<ConversationalFormRenderer | null>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -81,8 +94,14 @@ export function ChatInterfaceV2({
   // Prevent body scrolling when chat is open
   useEffect(() => {
     document.body.classList.add('chat-open');
+    // Add form-js styles
+    const styleElement = document.createElement('style');
+    styleElement.textContent = formJsStyles;
+    document.head.appendChild(styleElement);
+    
     return () => {
       document.body.classList.remove('chat-open');
+      document.head.removeChild(styleElement);
     };
   }, []);
 
@@ -193,6 +212,22 @@ export function ChatInterfaceV2({
         if (response.ok) {
           const data = await response.json();
           setProcessData(data);
+          
+          // Initialize form renderer if we have form schema
+          if (data.formSchema && executionModel === 'form') {
+            formRendererRef.current = new ConversationalFormRenderer(data.formSchema);
+            
+            // Start conversational flow after initial intro
+            setTimeout(() => {
+              const firstFieldMessage = formRendererRef.current!.startConversation();
+              const message: Message = {
+                id: Date.now().toString(),
+                ...firstFieldMessage,
+                timestamp: new Date()
+              };
+              setMessages(prev => [...prev, message]);
+            }, 2000); // Give time for intro message
+          }
         }
       } catch (error) {
         console.error('Error fetching process data:', error);
@@ -237,6 +272,74 @@ export function ChatInterfaceV2({
     // You can emit this to parent component or store for later use
   };
 
+  const handleFormFieldSubmit = useCallback((fieldKey: string, value: any) => {
+    console.log('Form field submitted:', fieldKey, value);
+    
+    if (!formRendererRef.current) return;
+    
+    // Process the field response
+    const result = formRendererRef.current.processFieldResponse(fieldKey, value);
+    
+    if (!result.isValid) {
+      // Show validation error
+      const errorMessage: Message = {
+        id: Date.now().toString(),
+        role: 'assistant',
+        content: result.error || 'Invalid input. Please try again.',
+        timestamp: new Date(),
+        type: 'text'
+      };
+      setMessages(prev => [...prev, errorMessage]);
+    } else if (result.nextMessage) {
+      // Add next field message
+      const nextMessage: Message = {
+        id: Date.now().toString(),
+        ...result.nextMessage,
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, nextMessage]);
+    } else if (result.isComplete) {
+      // All fields collected, show review
+      const reviewMessage: Message = {
+        id: Date.now().toString(),
+        ...formRendererRef.current.generateReviewMessage(),
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, reviewMessage]);
+    }
+    
+    scrollToBottom();
+  }, []);
+
+  const handleFormSubmit = useCallback(async (formData: Record<string, any>) => {
+    console.log('Form submitted:', formData);
+    
+    // Add user confirmation message
+    const confirmMessage: Message = {
+      id: Date.now().toString(),
+      role: 'user',
+      content: 'Confirmed all information',
+      timestamp: new Date(),
+      type: 'text'
+    };
+    setMessages(prev => [...prev, confirmMessage]);
+    
+    // Continue with regular chat flow, sending the form data
+    if (executionModel === 'form' && masterTaskId === 'identity-verification') {
+      // For identity verification, update user status
+      setUserVerified(true);
+      setShowPostCompletedSpinner(true);
+      
+      // Redirect after delay
+      setTimeout(() => {
+        router.push(`/${currentDomain?.slug || ''}`);
+      }, 3000);
+    }
+    
+    // You can send the formData to the AI for further processing
+    // handleSend(`Form data submitted: ${JSON.stringify(formData)}`);
+  }, [executionModel, masterTaskId, setUserVerified, router, currentDomain]);
+
   const handleArtifactInteract = useCallback(async (action: string, data?: any) => {
     console.log('Artifact interaction:', action, data);
     console.log('MasterTaskId:', masterTaskId);
@@ -261,9 +364,9 @@ export function ChatInterfaceV2({
         };
         setMessages(prev => [...prev, successMessage]);
         
-        // Redirect to home after a short delay
+        // Redirect to domain home after a short delay
         setTimeout(() => {
-          router.push('/');
+          router.push(currentDomain?.slug ? `/${currentDomain.slug}` : '/');
         }, 2000);
         
         return; // Exit early, no need to send to chat stream
@@ -361,8 +464,8 @@ export function ChatInterfaceV2({
           setShowPostCompletedSpinner(true);
           setTimeout(() => {
             setShowPostCompletedSpinner(false);
-            // Close the chat and redirect to home
-            router.push('/');
+            // Close the chat and redirect to domain home
+            router.push(currentDomain?.slug ? `/${currentDomain.slug}` : '/');
           }, 5000);
         });
 
@@ -402,8 +505,78 @@ export function ChatInterfaceV2({
     }
   }, [isStreaming, userTaskId, messages, accessToken, masterTaskId, masterTaskName, executionModel, currentDomain?.id, executionId, updateChatActivity, chatId, router, setUserVerified]);
 
+  const handleDocumentExtraction = async (file: File) => {
+    // Simulate AI extraction from document
+    // In real implementation, this would call an OCR/AI service
+    console.log('Extracting data from document:', file.name);
+    
+    // Add AI processing message
+    const processingMessage: Message = {
+      id: Date.now().toString(),
+      role: 'assistant',
+      content: 'Processing your document... 🔄',
+      timestamp: new Date(),
+      type: 'text'
+    };
+    setMessages(prev => [...prev, processingMessage]);
+    
+    // Simulate processing delay
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    // Mock extracted data (in real app, this would come from OCR/AI)
+    const extractedData = {
+      firstName: 'John',
+      lastName: 'Smith',
+      idNumber: 'A1234567',
+      dateOfBirth: '1990-01-15',
+      nationality: 'South African',
+      gender: 'male',
+      documentType: 'national_id'
+    };
+    
+    // Update form renderer with extracted data
+    if (formRendererRef.current) {
+      formRendererRef.current.setExtractedData(extractedData);
+      
+      // Start form conversation with extracted data
+      const firstFieldMessage = formRendererRef.current.startConversation();
+      const message: Message = {
+        id: (Date.now() + 1).toString(),
+        ...firstFieldMessage,
+        timestamp: new Date()
+      };
+      
+      // Replace processing message with success and first field
+      setMessages(prev => prev.slice(0, -1).concat([
+        {
+          id: Date.now().toString(),
+          role: 'assistant',
+          content: 'Great! I\'ve extracted information from your document. Let\'s verify each field:',
+          timestamp: new Date(),
+          type: 'text'
+        },
+        message
+      ]));
+    }
+  };
+
   const handleSend = useCallback(async () => {
     if ((!input.trim() && attachedFiles.length === 0) || isStreaming) return;
+    
+    // Check if this is a form execution with document upload
+    if (executionModel === 'form' && attachedFiles.length > 0 && formRendererRef.current) {
+      // Handle document extraction for forms
+      const documentFile = attachedFiles.find(f => 
+        f.type.startsWith('image/') || f.type === 'application/pdf'
+      );
+      
+      if (documentFile) {
+        await handleDocumentExtraction(documentFile);
+        setAttachedFiles([]); // Clear files after processing
+        setInput('');
+        return;
+      }
+    }
 
     // Convert images and PDFs to base64
     const filePromises = attachedFiles
@@ -543,8 +716,8 @@ export function ChatInterfaceV2({
         setShowPostCompletedSpinner(true);
         setTimeout(() => {
           setShowPostCompletedSpinner(false);
-          // Close the chat and redirect to home
-          router.push('/');
+          // Close the chat and redirect to domain home
+          router.push(currentDomain?.slug ? `/${currentDomain.slug}` : '/domains');
         }, 5000);
       });
 
@@ -681,27 +854,55 @@ export function ChatInterfaceV2({
             </div>
             <div
               className={cn(
-                "flex-1 max-w-[80%] rounded-lg px-4 py-2",
+                "flex-1 max-w-[80%]",
+                message.type === 'form-field' || message.type === 'form-review' 
+                  ? "" 
+                  : "rounded-lg px-4 py-2",
                 message.role === 'assistant'
-                  ? "bg-white border border-gray-200"
+                  ? (message.type === 'form-field' || message.type === 'form-review' ? "" : "bg-white border border-gray-200")
                   : "bg-blue-600 text-white"
               )}
             >
-              {message.role === 'assistant' ? (
-                <SmartMessageDisplay
-                  content={message.content}
-                  className="text-sm"
-                  onDataExtract={handleDataExtract(message.id)}
-                  onInteract={handleArtifactInteract}
-                  requiredParameters={processData?.requiredParameters}
-                />
-              ) : (
-                <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+              {/* Regular text message */}
+              {message.type !== 'form-field' && message.type !== 'form-review' && (
+                <>
+                  {message.role === 'assistant' ? (
+                    <SmartMessageDisplay
+                      content={message.content}
+                      className="text-sm"
+                      onDataExtract={handleDataExtract(message.id)}
+                      onInteract={handleArtifactInteract}
+                      requiredParameters={processData?.requiredParameters}
+                    />
+                  ) : (
+                    <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                  )}
+                </>
               )}
+              
+              {/* Form message */}
+              {(message.type === 'form-field' || message.type === 'form-review') && (
+                <>
+                  {message.content && (
+                    <p className="text-sm mb-2">{message.content}</p>
+                  )}
+                  <FormMessage
+                    type={message.type}
+                    schema={message.schema}
+                    data={message.data}
+                    fieldKey={message.fieldKey}
+                    fieldValue={message.fieldValue}
+                    actions={message.actions}
+                    onFieldSubmit={handleFormFieldSubmit}
+                    onSubmit={handleFormSubmit}
+                  />
+                </>
+              )}
+              
               {message.isStreaming && message.content && (
                 <span className="inline-block w-1 h-4 bg-gray-400 animate-pulse ml-1" />
               )}
-              {!message.isStreaming && (
+              {!message.isStreaming && message.type !== 'form-field' && message.type !== 'form-review' && (
                 <p className={cn(
                   "text-xs mt-1",
                   message.role === 'assistant' ? "text-gray-500" : "text-blue-100"

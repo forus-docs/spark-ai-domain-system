@@ -2,9 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyAccessToken } from '@/app/lib/auth/jwt';
 import { connectToDatabase } from '@/app/lib/database';
 import TaskExecution from '@/app/models/TaskExecution';
-import UserTask from '@/app/models/UserTask';
-import DomainTask from '@/app/models/DomainTask';
-import MasterTask from '@/app/models/MasterTask';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,7 +13,7 @@ interface RouteContext {
 
 /**
  * GET /api/task-executions/[executionId]/info
- * Get comprehensive information about a task execution including userTask and masterTask details
+ * Get comprehensive information about a task execution
  */
 export async function GET(request: NextRequest, context: RouteContext) {
   await connectToDatabase();
@@ -34,85 +31,39 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
     const { executionId } = context.params;
 
-    // Get the task execution
+    // Get the task execution with full task snapshot
     const taskExecution = await TaskExecution.findOne({ executionId });
     if (!taskExecution) {
       return NextResponse.json({ error: 'Task execution not found' }, { status: 404 });
     }
 
     // Verify the task execution belongs to the user
-    if (taskExecution.userId !== userId) {
+    if (taskExecution.userId.toString() !== userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
-    // Prepare response object
-    const response: any = {
+    // Return comprehensive task execution info
+    return NextResponse.json({
       taskExecution: {
         executionId: taskExecution.executionId,
-        title: taskExecution.title,
-        masterTaskId: taskExecution.masterTaskId,
-        masterTaskName: taskExecution.masterTaskName,
-        executionModel: taskExecution.executionModel,
+        status: taskExecution.status,
+        assignedAt: taskExecution.assignedAt,
+        startedAt: taskExecution.startedAt,
+        completedAt: taskExecution.completedAt,
         domainId: taskExecution.domainId,
-        userTaskId: taskExecution.userTaskId,
+        domainTaskId: taskExecution.domainTaskId,
+        procedureStates: taskExecution.procedureStates,
+        formData: taskExecution.formData,
         createdAt: taskExecution.createdAt,
         updatedAt: taskExecution.updatedAt,
-      }
-    };
-
-    // Get UserTask information if available
-    if (taskExecution.userTaskId) {
-      const userTask = await UserTask.findById(taskExecution.userTaskId).populate('domainTaskId');
-      if (userTask) {
-        const domainTask = await DomainTask.findById(userTask.domainTaskId);
-        response.userTask = {
-          id: userTask._id.toString(),
-          domainTaskId: userTask.domainTaskId,
-          userId: userTask.userId,
-          isCompleted: userTask.isCompleted,
-          isViewed: userTask.isViewed,
-          isHidden: userTask.isHidden,
-          masterTaskId: userTask.masterTaskId,
-          domainTask: domainTask ? {
-            title: domainTask.title,
-            description: domainTask.description,
-            taskType: domainTask.taskType,
-            ctaText: domainTask.ctaText,
-            domain: domainTask.domain,
-          } : null,
-        };
-      }
-    }
-
-    // Get MasterTask information if available
-    if (taskExecution.masterTaskId) {
-      const masterTask = await MasterTask.findOne({ 
-        $or: [
-          { masterTaskId: taskExecution.masterTaskId },
-          { _id: taskExecution.masterTaskId }
-        ]
-      });
-      if (masterTask) {
-        response.masterTask = {
-          masterTaskId: masterTask.masterTaskId || masterTask._id.toString(),
-          name: masterTask.name,
-          description: masterTask.description,
-          category: masterTask.category,
-          executionModel: masterTask.executionModel,
-          currentStage: masterTask.currentStage,
-          aiAgentAttached: masterTask.aiAgentAttached,
-          aiAgentRole: masterTask.aiAgentRole,
-          checklist: masterTask.checklist || [],
-          intro: masterTask.intro, // Include intro message
-        };
-      }
-    }
-
-    return NextResponse.json(response);
+      },
+      task: taskExecution.taskSnapshot, // Complete task data
+      messageCount: taskExecution.messages.length
+    });
   } catch (error) {
     console.error('Error fetching task execution info:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch task execution information' },
+      { error: 'Failed to fetch task execution info' },
       { status: 500 }
     );
   }

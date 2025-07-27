@@ -54,13 +54,14 @@ function AuthFormWrapper({ intendedDomain }: AuthFormWrapperProps) {
         const decodedUrl = decodeURIComponent(returnUrl);
         console.log('[Auth Page] Redirecting to returnUrl:', decodedUrl);
         router.push(decodedUrl);
-      } else if (user.currentDomainId && user.domains && user.domains.length > 0) {
-        // Existing user with a domain selected - go to home
-        console.log('[Auth Page] Existing user with currentDomainId, redirecting to home');
+      } else if (user.domains && user.domains.length > 0 && user.domains.some((d: any) => d.role !== null)) {
+        // User has joined at least one domain (has a role) - go to domain-specific home
+        console.log('[Auth Page] User has joined domains, redirecting to home');
+        // The root page will handle the domain-specific redirect
         router.push('/');
       } else {
-        console.log('[Auth Page] New user without domain, redirecting to domains');
-        // Redirect to domains page for new users to select their first domain
+        console.log('[Auth Page] User has not joined any domains, redirecting to domains');
+        // User hasn't joined any domains yet - go to domains page
         router.push('/domains');
       }
     }

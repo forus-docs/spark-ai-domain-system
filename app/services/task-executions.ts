@@ -4,12 +4,10 @@ import { v4 as uuidv4 } from 'uuid';
 
 export interface CreateTaskExecutionParams {
   userId: string;
-  title?: string;
-  domainTaskId?: string;
-  executionModel?: string;
-  userTaskId?: string; // Reference to UserTask that initiated this execution
-  model?: string;
-  systemPrompt?: string;
+  domainId: string;
+  domainTaskId: string;
+  taskSnapshot: any; // Complete task data
+  executionId?: string;
 }
 
 export interface CreateExecutionMessageParams {
@@ -27,19 +25,19 @@ export interface CreateExecutionMessageParams {
 export class TaskExecutionService {
   /**
    * Create a new task execution
+   * Note: This is typically called from the assign route, not directly
    */
   static async createTaskExecution(params: CreateTaskExecutionParams): Promise<ITaskExecution> {
-    const executionId = uuidv4();
+    const executionId = params.executionId || uuidv4();
     
     const taskExecution = new TaskExecution({
       executionId,
       userId: params.userId,
-      title: params.title || 'New Task Execution',
+      domainId: params.domainId,
       domainTaskId: params.domainTaskId,
-      executionModel: params.executionModel,
-      userTaskId: params.userTaskId, // Link to UserTask
-      aiModel: params.model || 'gemini-1.5-flash',
-      systemPrompt: params.systemPrompt, // Store the full context
+      taskSnapshot: params.taskSnapshot,
+      status: 'assigned',
+      assignedAt: new Date(),
       messages: [],
     });
 
@@ -65,7 +63,9 @@ export class TaskExecutionService {
     offset: number = 0
   ): Promise<ITaskExecution[]> {
     const query: any = { userId };
-    // Note: domainId filtering happens in the API route since TaskExecution doesn't have domainId field
+    if (domainId) {
+      query.domainId = domainId;
+    }
 
     return await TaskExecution.find(query)
       .sort({ updatedAt: -1 })
@@ -75,18 +75,18 @@ export class TaskExecutionService {
   }
 
   /**
-   * Get task executions for a UserTask
+   * Get task execution by domain task ID and user
    */
-  static async getTaskExecutionsByUserTask(
-    userTaskId: string,
-    limit: number = 20,
-    offset: number = 0
-  ): Promise<ITaskExecution[]> {
-    return await TaskExecution.find({ userTaskId })
-      .sort({ createdAt: -1 })
-      .limit(limit)
-      .skip(offset)
-      .exec();
+  static async getTaskExecutionByDomainTask(
+    domainTaskId: string,
+    userId: string
+  ): Promise<ITaskExecution | null> {
+    return await TaskExecution.findOne({ 
+      domainTaskId, 
+      userId,
+      status: { $in: ['assigned', 'in_progress'] }
+    })
+    .exec();
   }
 
   /**

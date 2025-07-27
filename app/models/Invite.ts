@@ -54,8 +54,10 @@ const InviteSchema = new mongoose.Schema({
   }
 });
 
-// Indexes for efficient lookup (removed duplicate code index since unique already creates one)
-InviteSchema.index({ status: 1, expiresAt: 1 });
+// Indexes with readable names
+InviteSchema.index({ status: 1, expiresAt: 1 }, { name: 'idx_active_invites' });
+InviteSchema.index({ domainId: 1, roleId: 1 }, { name: 'idx_domain_role' });
+InviteSchema.index({ createdBy: 1 }, { name: 'idx_creator' });
 
 // Method to check if invite is valid
 InviteSchema.methods.isValid = function() {

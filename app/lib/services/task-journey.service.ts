@@ -49,14 +49,14 @@ export class TaskJourneyService {
    * Toggle task visibility
    */
   static async toggleTaskVisibility(userId: string, userTaskId: string): Promise<{ success: boolean; error?: string }> {
-    return TaskInteractionService.toggleTaskVisibility(userId, userTaskId);
+    return TaskInteractionService.toggleTaskVisibility(userTaskId, userId);
   }
 
   /**
    * Mark task as viewed
    */
   static async markTaskViewed(userId: string, userTaskId: string): Promise<void> {
-    return TaskInteractionService.markTaskViewed(userId, userTaskId);
+    return TaskInteractionService.trackTaskView(userTaskId, userId);
   }
 
   /**

@@ -1,125 +1,164 @@
-import mongoose, { Schema, Document } from 'mongoose';
+import mongoose, { Schema, Document, Types } from 'mongoose';
 
 export interface ITaskExecution extends Document {
+  // Identity
   executionId: string;
-  title: string;
-  userId: string;
-  messages: mongoose.Types.ObjectId[];
+  userId: Types.ObjectId;
+  domainId: Types.ObjectId;
+  domainTaskId: Types.ObjectId;
+  
+  // Task snapshot - complete copy from DomainTask at time of assignment
+  taskSnapshot: {
+    title: string;
+    description?: string;
+    taskType: string;
+    executionModel: string;
+    aiAgentRole?: string;
+    systemPrompt?: string;
+    customInstructions?: string;
+    sop?: string;
+    procedures?: Array<{
+      stepNumber: number;
+      title: string;
+      description: string;
+      estimatedDuration?: string;
+      requiredRole?: string;
+      requiredResources?: string[];
+      outputDescription?: string;
+      qualityChecks?: string[];
+      dependencies?: string[];
+    }>;
+    checklist?: string[];
+    requiredParameters?: Array<{
+      name: string;
+      type: string;
+      description: string;
+      validation?: any;
+      uiComponent?: string;
+      options?: Array<{ label: string; value: string }>;
+    }>;
+    formSchema?: any; // form-js schema
+    reward?: {
+      amount: number;
+      currency: string;
+      displayText: string;
+    };
+    estimatedDuration?: string;
+    difficultyLevel?: string;
+    introductionMessage?: string;
+  };
+  
+  // Execution state
+  status: 'assigned' | 'in_progress' | 'completed' | 'failed';
+  assignedAt: Date;
+  startedAt?: Date; // When first message is sent
+  completedAt?: Date;
+  procedureStates?: Record<number, 'todo' | 'in_progress' | 'done'>;
+  formData?: Record<string, any>; // Collected form data
+  
+  // Chat messages
+  messages: Types.ObjectId[];
+  
+  // Metadata
+  metadata?: Record<string, any>;
   createdAt: Date;
   updatedAt: Date;
-  // Spark-specific fields
-  domainTaskId?: string;
-  executionModel?: string;
-  userTaskId?: string; // Reference to UserTask that initiated this execution
-  // LibreChat compatibility fields
-  endpoint?: string;
-  aiModel?: string;
-  modelLabel?: string;
-  promptPrefix?: string;
-  temperature?: number;
-  topP?: number;
-  topK?: number;
-  maxOutputTokens?: number;
-  // Tags for organization
-  tags?: string[];
-  // Agent support
-  agentId?: string;
-  agentOptions?: Record<string, any>;
-  // Files
-  files?: mongoose.Types.ObjectId[];
-  // System prompt with full context
-  systemPrompt?: string;
 }
 
-const TaskExecutionSchema = new Schema<ITaskExecution>(
-  {
-    executionId: {
+const TaskExecutionSchema = new Schema<ITaskExecution>({
+  // Identity
+  executionId: { type: String, required: true, unique: true },
+  userId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+  domainId: { type: Schema.Types.ObjectId, ref: 'Domain', required: true },
+  domainTaskId: { type: Schema.Types.ObjectId, ref: 'DomainTask', required: true },
+  
+  // Task snapshot - immutable copy
+  taskSnapshot: {
+    title: { type: String, required: true },
+    description: String,
+    taskType: { type: String, required: true },
+    executionModel: { type: String, required: true },
+    aiAgentRole: String,
+    systemPrompt: String,
+    customInstructions: String,
+    sop: String,
+    procedures: [{
+      stepNumber: Number,
+      title: String,
+      description: String,
+      estimatedDuration: String,
+      requiredRole: String,
+      requiredResources: [String],
+      outputDescription: String,
+      qualityChecks: [String],
+      dependencies: [String]
+    }],
+    checklist: [String],
+    requiredParameters: [{
+      name: String,
       type: String,
-      required: true,
-      unique: true,
-      index: true,
+      description: String,
+      validation: Schema.Types.Mixed,
+      uiComponent: String,
+      options: [{
+        label: String,
+        value: String
+      }]
+    }],
+    formSchema: Schema.Types.Mixed,
+    reward: {
+      amount: Number,
+      currency: String,
+      displayText: String
     },
-    title: {
-      type: String,
-      default: 'New Chat',
-    },
-    userId: {
-      type: String,
-      required: true,
-      index: true,
-    },
-    messages: [
-      {
-        type: Schema.Types.ObjectId,
-        ref: 'ExecutionMessage',
-      },
-    ],
-    // Spark-specific fields
-    domainTaskId: {
-      type: String,
-      index: true,
-    },
-    executionModel: {
-      type: String,
-      enum: ['form', 'sop', 'knowledge', 'bpmn', 'training'],
-    },
-    userTaskId: {
-      type: String,
-      ref: 'UserTask',
-      index: true,
-    },
-    // LibreChat compatibility
-    endpoint: {
-      type: String,
-      default: 'google',
-    },
-    aiModel: {
-      type: String,
-      default: 'gemini-1.5-flash',
-    },
-    modelLabel: String,
-    promptPrefix: String,
-    temperature: {
-      type: Number,
-      default: 0.7,
-    },
-    topP: {
-      type: Number,
-      default: 0.95,
-    },
-    topK: {
-      type: Number,
-      default: 40,
-    },
-    maxOutputTokens: {
-      type: Number,
-      default: 8192,
-    },
-    tags: [String],
-    agentId: String,
-    agentOptions: {
-      type: Schema.Types.Mixed,
-    },
-    files: [
-      {
-        type: Schema.Types.ObjectId,
-        ref: 'File',
-      },
-    ],
-    systemPrompt: {
-      type: String,
-    },
+    estimatedDuration: String,
+    difficultyLevel: String,
+    introductionMessage: String
   },
-  {
-    timestamps: true,
-  }
-);
+  
+  // Execution state
+  status: {
+    type: String,
+    enum: ['assigned', 'in_progress', 'completed', 'failed'],
+    default: 'assigned',
+    required: true
+  },
+  assignedAt: { type: Date, required: true, default: Date.now },
+  startedAt: Date,
+  completedAt: Date,
+  procedureStates: { type: Map, of: String },
+  formData: { type: Map, of: Schema.Types.Mixed },
+  
+  // Chat messages
+  messages: [{
+    type: Schema.Types.ObjectId,
+    ref: 'ExecutionMessage'
+  }],
+  
+  // Metadata
+  metadata: { type: Map, of: Schema.Types.Mixed }
+}, {
+  timestamps: true
+});
 
-// Indexes for performance
-TaskExecutionSchema.index({ userId: 1, createdAt: -1 });
-TaskExecutionSchema.index({ userId: 1, domainId: 1 });
-TaskExecutionSchema.index({ userId: 1, masterTaskId: 1 });
-TaskExecutionSchema.index({ userTaskId: 1, createdAt: -1 }); // For querying executions by UserTask
+// Indexes with readable names
+TaskExecutionSchema.index({ userId: 1, createdAt: -1 }, { name: 'idx_user_recent' });
+// executionId already has unique index from schema definition
+TaskExecutionSchema.index({ domainTaskId: 1 }, { name: 'idx_domain_task' });
+TaskExecutionSchema.index({ userId: 1, status: 1 }, { name: 'idx_user_status' });
+TaskExecutionSchema.index({ domainId: 1, userId: 1 }, { name: 'idx_domain_user' });
+TaskExecutionSchema.index({ userId: 1, domainId: 1, status: 1 }, { name: 'idx_user_domain_status' });
+
+// Update status to in_progress when first message is sent
+TaskExecutionSchema.pre('save', function(next) {
+  if (this.isModified('messages') && this.messages.length > 0 && !this.startedAt) {
+    this.startedAt = new Date();
+    if (this.status === 'assigned') {
+      this.status = 'in_progress';
+    }
+  }
+  next();
+});
 
 const TaskExecution = mongoose.models.TaskExecution || mongoose.model<ITaskExecution>('TaskExecution', TaskExecutionSchema, 'taskExecutions');
 

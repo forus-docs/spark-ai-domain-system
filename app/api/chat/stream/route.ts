@@ -58,26 +58,25 @@ export async function POST(request: NextRequest) {
       // Send initial connection event
       await writer.write(encoder.encode('event: connect\ndata: {"status":"connected"}\n\n'));
 
-      // Create or get taskExecution
-      console.log('Creating/getting taskExecution...');
+      // Get taskExecution - in new model, executions must be created through assignment
+      console.log('Getting taskExecution...');
       if (!executionId) {
-        // Create new taskExecution
-        console.log('Creating new taskExecution for user:', userId);
-        taskExecution = await TaskExecutionService.createTaskExecution({
-          userId,
-          executionModel,
-          title: messages[messages.length - 1]?.content?.substring(0, 100) || 'New Chat',
-        });
-        console.log('Created taskExecution:', taskExecution.executionId);
-      } else {
-        // Get existing taskExecution
-        console.log('Getting existing taskExecution:', executionId);
-        taskExecution = await TaskExecutionService.getTaskExecution(executionId);
-        if (!taskExecution) {
-          throw new Error('Conversation not found');
-        }
-        console.log('Found existing taskExecution');
+        throw new Error('executionId is required. Task executions must be created through the assignment flow.');
       }
+      
+      // Get existing taskExecution
+      console.log('Getting existing taskExecution:', executionId);
+      taskExecution = await TaskExecutionService.getTaskExecution(executionId);
+      if (!taskExecution) {
+        throw new Error('Task execution not found');
+      }
+      
+      // Verify user owns this execution
+      if (taskExecution.userId.toString() !== userId) {
+        throw new Error('Unauthorized access to task execution');
+      }
+      
+      console.log('Found existing taskExecution');
 
       // Save user message
       const lastUserMessage = messages[messages.length - 1];
@@ -135,10 +134,15 @@ export async function POST(request: NextRequest) {
         images: msg.images || undefined
       }));
 
-      // Use the system prompt from the task execution if available
-      // This already contains all context from the UserTask snapshot
-      const finalSystemPrompt = taskExecution.systemPrompt || systemPrompt || 
-        'You are a helpful AI assistant for the Spark AI Domain System.';
+      // Build system prompt from task snapshot
+      const taskData = taskExecution.taskSnapshot;
+      let finalSystemPrompt = taskData.systemPrompt || systemPrompt || 
+        `You are an AI assistant helping with the ${taskData.title} task.`;
+      
+      // Add additional context if available
+      if (taskData.aiAgentRole) {
+        finalSystemPrompt = `${taskData.aiAgentRole}\n\n${finalSystemPrompt}`;
+      }
 
       // Stream the Gemini response
       let fullResponse = '';

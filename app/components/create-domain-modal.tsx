@@ -14,17 +14,27 @@ export function CreateDomainModal({ isOpen, onClose }: CreateDomainModalProps) {
   return (
     <div className="fixed inset-0 z-50">
       <div className="fixed inset-0 bg-white flex flex-col">
-        {/* Header - Fixed */}
-        <div className="flex items-center justify-between p-3 border-b border-gray-200 flex-shrink-0">
-            
-            <h2 className="text-lg font-light text-gray-900">Create Your Own Domain</h2>
+        {/* Header - Same height as app bar */}
+        <div className="h-14 border-b border-gray-200 flex items-center px-3">
+          <div className="flex items-center justify-between w-full">
+            {/* Close button - Aligned with hamburger */}
             <button
               onClick={onClose}
               className="p-1.5 hover:bg-gray-100 rounded-md transition-colors"
+              aria-label="Close modal"
             >
-              <X className="w-5 h-5" />
+              <X className="w-5 h-5 text-gray-600" />
             </button>
+
+            {/* Title */}
+            <div className="flex-1 flex items-center px-3">
+              <h2 className="text-base font-semibold text-gray-900">Create Your Own Domain</h2>
+            </div>
+
+            {/* Empty space for balance */}
+            <div className="w-11"></div>
           </div>
+        </div>
 
           {/* Content - Scrollable */}
           <div className="flex-1 overflow-y-auto p-4">
