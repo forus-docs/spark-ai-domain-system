@@ -7,46 +7,9 @@ export interface ITaskExecution extends Document {
   domainId: Types.ObjectId;
   domainTaskId: Types.ObjectId;
   
-  // Task snapshot - complete copy from DomainTask at time of assignment
-  taskSnapshot: {
-    title: string;
-    description?: string;
-    taskType: string;
-    executionModel: string;
-    aiAgentRole?: string;
-    systemPrompt?: string;
-    customInstructions?: string;
-    sop?: string;
-    procedures?: Array<{
-      stepNumber: number;
-      title: string;
-      description: string;
-      estimatedDuration?: string;
-      requiredRole?: string;
-      requiredResources?: string[];
-      outputDescription?: string;
-      qualityChecks?: string[];
-      dependencies?: string[];
-    }>;
-    checklist?: string[];
-    requiredParameters?: Array<{
-      name: string;
-      type: string;
-      description: string;
-      validation?: any;
-      uiComponent?: string;
-      options?: Array<{ label: string; value: string }>;
-    }>;
-    formSchema?: any; // form-js schema
-    reward?: {
-      amount: number;
-      currency: string;
-      displayText: string;
-    };
-    estimatedDuration?: string;
-    difficultyLevel?: string;
-    introductionMessage?: string;
-  };
+  // Task snapshot - complete immutable copy from DomainTask at time of assignment
+  // This is a complete snapshot - no structure enforced to maintain QMS compliance
+  taskSnapshot: any;
   
   // Execution state
   status: 'assigned' | 'in_progress' | 'completed' | 'failed';
@@ -72,48 +35,11 @@ const TaskExecutionSchema = new Schema<ITaskExecution>({
   domainId: { type: Schema.Types.ObjectId, ref: 'Domain', required: true },
   domainTaskId: { type: Schema.Types.ObjectId, ref: 'DomainTask', required: true },
   
-  // Task snapshot - immutable copy
+  // Task snapshot - complete immutable copy from DomainTask
+  // Using Mixed type to accept the snapshot exactly as it comes from DomainTask
   taskSnapshot: {
-    title: { type: String, required: true },
-    description: String,
-    taskType: { type: String, required: true },
-    executionModel: { type: String, required: true },
-    aiAgentRole: String,
-    systemPrompt: String,
-    customInstructions: String,
-    sop: String,
-    procedures: [{
-      stepNumber: Number,
-      title: String,
-      description: String,
-      estimatedDuration: String,
-      requiredRole: String,
-      requiredResources: [String],
-      outputDescription: String,
-      qualityChecks: [String],
-      dependencies: [String]
-    }],
-    checklist: [String],
-    requiredParameters: [{
-      name: String,
-      type: String,
-      description: String,
-      validation: Schema.Types.Mixed,
-      uiComponent: String,
-      options: [{
-        label: String,
-        value: String
-      }]
-    }],
-    formSchema: Schema.Types.Mixed,
-    reward: {
-      amount: Number,
-      currency: String,
-      displayText: String
-    },
-    estimatedDuration: String,
-    difficultyLevel: String,
-    introductionMessage: String
+    type: Schema.Types.Mixed,
+    required: true
   },
   
   // Execution state

@@ -39,7 +39,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     }
 
     const isMember = user.domains?.some((d: any) => 
-      d.domain?.toString() === domainId || d.domainId === domainId
+      d.domainId === domainId
     );
 
     if (!isMember) {

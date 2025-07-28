@@ -128,21 +128,33 @@ export async function POST(request: NextRequest) {
       // Messages are already properly formatted from the client
 
       // Convert messages to ChatMessage format
-      const chatMessages: ChatMessage[] = messages.map(msg => ({
-        role: msg.role as 'user' | 'assistant' | 'system',
-        content: msg.content,
-        images: msg.images || undefined
-      }));
+      // Filter out system messages - they're for UI display only, not AI context
+      const chatMessages: ChatMessage[] = messages
+        .filter(msg => msg.role !== 'system')
+        .map(msg => ({
+          role: msg.role as 'user' | 'assistant',
+          content: msg.content,
+          images: msg.images || undefined
+        }));
 
-      // Build system prompt from task snapshot
+      // Build system prompt that explains how to use the task context
       const taskData = taskExecution.taskSnapshot;
-      let finalSystemPrompt = taskData.systemPrompt || systemPrompt || 
-        `You are an AI assistant helping with the ${taskData.title} task.`;
       
-      // Add additional context if available
-      if (taskData.aiAgentRole) {
-        finalSystemPrompt = `${taskData.aiAgentRole}\n\n${finalSystemPrompt}`;
-      }
+      // Simple system prompt that explains the JSON context
+      let finalSystemPrompt = systemPrompt || `You are an AI assistant helping users complete tasks. 
+
+You have been provided with a complete task definition as JSON that includes:
+- Task metadata (title, description, type, execution model)
+- Standard Operating Procedures (SOP) if applicable
+- Step-by-step procedures
+- Required parameters and validation rules
+- Form schemas for data collection
+- Any domain-specific customizations
+
+Use this task definition to guide the user through completing the task according to the specifications provided.`;
+      
+      // Add the complete taskSnapshot as JSON context
+      const taskContext = JSON.stringify(taskData, null, 2);
 
       // Stream the Gemini response
       let fullResponse = '';
@@ -190,7 +202,7 @@ export async function POST(request: NextRequest) {
       
       try {
         let chunksSent = 0;
-        for await (const chunk of streamGeminiResponse(chatMessages, finalSystemPrompt, processContext)) {
+        for await (const chunk of streamGeminiResponse(chatMessages, finalSystemPrompt, taskContext)) {
           fullResponse += chunk;
           const chunkTokens = Math.ceil(chunk.split(/\s+/).length * 1.3);
           totalTokenCount += chunkTokens;

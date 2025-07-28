@@ -60,7 +60,7 @@ export async function* streamGeminiResponse(
       contextualPrompt = systemPrompt + '\n\n';
     }
     if (processContext) {
-      contextualPrompt += `Process Context:\n${processContext}\n\n`;
+      contextualPrompt += `Task Definition (JSON):\n${processContext}\n\n`;
     }
 
     // Convert messages to Gemini format, filtering out initial assistant messages

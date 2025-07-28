@@ -20,6 +20,7 @@ export default function TasksPage() {
   const [userTasks, setUserTasks] = useState<IMasterTask[]>([]);
   const [masterTasks, setMasterTasks] = useState<IMasterTask[]>([]);
   const [selectedMasterTask, setSelectedMasterTask] = useState<IMasterTask | null>(null);
+  const [selectedDomainTask, setSelectedDomainTask] = useState<IMasterTask | null>(null);
   const [showAdoptModal, setShowAdoptModal] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -117,8 +118,15 @@ export default function TasksPage() {
     }
   };
 
-  // Handle domain task click (assign to self)
-  const handleDomainTaskClick = async (task: IMasterTask) => {
+  // Handle domain task click (show detail view)
+  const handleDomainTaskClick = (task: IMasterTask) => {
+    setSelectedDomainTask(task);
+  };
+
+  // Handle assign task to self
+  const handleAssignToSelf = async () => {
+    if (!selectedDomainTask) return;
+    
     try {
       // Assign task to self
       const response = await fetch('/api/domain-tasks/assign', {
@@ -127,13 +135,23 @@ export default function TasksPage() {
           'Authorization': `Bearer ${accessToken}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ taskId: task._id })
+        body: JSON.stringify({ taskId: selectedDomainTask.id })
       });
       
-      if (response.ok) {
-        const { executionId } = await response.json();
+      const data = await response.json();
+      console.log('Debug response:', data);
+      
+      if (response.ok && data.executionId) {
         // Navigate directly to chat with the execution
-        router.push(`/chat/${executionId}`);
+        router.push(`/chat/${data.executionId}`);
+      } else {
+        console.error('Assignment failed:', data);
+        // Log detailed debug info
+        if (data.debug) {
+          console.log('Debug step reached:', data.debug.step);
+          console.log('Debug data:', data.debug.data);
+          console.log('Debug errors:', data.debug.errors);
+        }
       }
     } catch (error) {
       console.error('Error assigning task:', error);
@@ -232,7 +250,11 @@ export default function TasksPage() {
         <div className="flex gap-2">
           {/* Library tab - only show on desktop */}
           <button
-            onClick={() => setActiveTab('library')}
+            onClick={() => {
+              setActiveTab('library');
+              setSelectedMasterTask(null);
+              setSelectedDomainTask(null);
+            }}
             className={cn(
               "hidden md:flex px-4 py-2 rounded-full text-sm font-medium transition-colors",
               activeTab === 'library' 
@@ -243,7 +265,11 @@ export default function TasksPage() {
             Library
           </button>
           <button
-            onClick={() => setActiveTab('domain')}
+            onClick={() => {
+              setActiveTab('domain');
+              setSelectedMasterTask(null);
+              setSelectedDomainTask(null);
+            }}
             className={cn(
               "px-4 py-2 rounded-full text-sm font-medium transition-colors",
               activeTab === 'domain' 
@@ -254,7 +280,11 @@ export default function TasksPage() {
             Domain
           </button>
           <button
-            onClick={() => setActiveTab('assigned')}
+            onClick={() => {
+              setActiveTab('assigned');
+              setSelectedMasterTask(null);
+              setSelectedDomainTask(null);
+            }}
             className={cn(
               "px-4 py-2 rounded-full text-sm font-medium transition-colors",
               activeTab === 'assigned' 
@@ -345,8 +375,17 @@ export default function TasksPage() {
             <div
               key={(task._id || task.masterTaskId) as string}
               onClick={() => handleMasterTaskClick(task)}
-              className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow cursor-pointer"
+              className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow cursor-pointer relative"
             >
+              {/* Adoption Status Chip */}
+              {(task as any).isAdoptedByDomain && (
+                <div className="absolute top-4 right-4">
+                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                    Adopted
+                  </span>
+                </div>
+              )}
+              
               <h3 className="text-lg font-semibold mb-2">{task.name || task.title}</h3>
               <p className="text-sm text-gray-600 mb-4 line-clamp-3">{task.description}</p>
               <div className="flex flex-wrap gap-2 mb-4">
@@ -1325,12 +1364,24 @@ export default function TasksPage() {
             {/* Footer - Fixed at bottom */}
             <div className="border-t bg-white p-4">
               <div className="max-w-6xl mx-auto flex gap-3 justify-end">
-                <button
-                  onClick={handleAdoptClick}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
-                >
-                  Adopt Task
-                </button>
+                {/* Only show adopt button if not already adopted */}
+                {!(selectedMasterTask as any).isAdoptedByDomain && (
+                  <button
+                    onClick={handleAdoptClick}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+                  >
+                    Adopt Task
+                  </button>
+                )}
+                {/* If already adopted, show informational text */}
+                {(selectedMasterTask as any).isAdoptedByDomain && (
+                  <div className="text-sm text-gray-600 flex items-center">
+                    <svg className="w-4 h-4 text-green-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    This task has been adopted by your domain
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -1403,6 +1454,112 @@ export default function TasksPage() {
                   </button>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Domain Task Detail View (for domain tab) */}
+      {activeTab === 'domain' && selectedDomainTask && (
+        <div className="fixed inset-0 bg-white z-50 flex flex-col">
+          <div className="h-14 border-b flex items-center px-3">
+            <div className="flex items-center justify-between w-full">
+              <button
+                onClick={() => setSelectedDomainTask(null)}
+                className="p-1.5 hover:bg-gray-100 rounded-md transition-colors"
+                aria-label="Back to tasks"
+              >
+                <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                </svg>
+              </button>
+              
+              <div className="flex-1 flex items-center px-3">
+                <h3 className="text-base font-semibold text-gray-900">Domain Task Details</h3>
+              </div>
+              
+              <div className="w-11"></div>
+            </div>
+          </div>
+
+          {/* Content - Scrollable */}
+          <div className="flex-1 overflow-y-auto">
+            <div className="max-w-4xl mx-auto p-6 space-y-6">
+              {/* Basic Information */}
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                <h3 className="text-lg font-semibold mb-4">Task Information</h3>
+                <div className="space-y-4">
+                  <div>
+                    <h4 className="font-medium text-gray-700">Title</h4>
+                    <p className="text-gray-900">{selectedDomainTask.title || selectedDomainTask.name}</p>
+                  </div>
+                  <div>
+                    <h4 className="font-medium text-gray-700">Description</h4>
+                    <p className="text-gray-600">{selectedDomainTask.description}</p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <h4 className="font-medium text-gray-700">Category</h4>
+                      <p className="text-gray-600">{selectedDomainTask.category}</p>
+                    </div>
+                    <div>
+                      <h4 className="font-medium text-gray-700">Priority</h4>
+                      <p className="text-gray-600">{selectedDomainTask.priority}</p>
+                    </div>
+                  </div>
+                  {selectedDomainTask.reward && (
+                    <div>
+                      <h4 className="font-medium text-gray-700">Reward</h4>
+                      <p className="text-gray-600">{selectedDomainTask.reward.displayText}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Adoption Information */}
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                <h3 className="text-lg font-semibold mb-4">Adoption Details</h3>
+                <div className="space-y-2">
+                  <div>
+                    <span className="font-medium text-gray-700">Master Task ID:</span>
+                    <span className="ml-2 text-gray-600 font-mono text-sm">{(selectedDomainTask as any).masterTaskId}</span>
+                  </div>
+                  <div>
+                    <span className="font-medium text-gray-700">Adopted:</span>
+                    <span className="ml-2 text-gray-600">
+                      {(selectedDomainTask as any).adoptedAt ? 
+                        new Date((selectedDomainTask as any).adoptedAt).toLocaleDateString() : 
+                        'Unknown'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Footer - Fixed at bottom */}
+          <div className="border-t bg-white p-4">
+            <div className="max-w-4xl mx-auto flex gap-3 justify-between">
+              <div className="flex gap-3">
+                <button
+                  onClick={() => alert('Edit functionality not yet implemented')}
+                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm"
+                >
+                  Edit
+                </button>
+                <button
+                  onClick={() => alert('Delete functionality not yet implemented')}
+                  className="px-4 py-2 border border-red-300 text-red-700 rounded-lg hover:bg-red-50 transition-colors text-sm"
+                >
+                  Delete
+                </button>
+              </div>
+              <button
+                onClick={handleAssignToSelf}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+              >
+                Assign to Me
+              </button>
             </div>
           </div>
         </div>

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyAccessToken } from '@/app/lib/auth/jwt';
 import { connectToDatabase } from '@/app/lib/database';
-import MasterTask from '@/app/models/MasterTask';
+import DomainTask from '@/app/models/DomainTask';
 
 export const dynamic = 'force-dynamic';
 
@@ -31,19 +31,17 @@ export async function GET(request: NextRequest) {
     const category = searchParams.get('category');
     const taskType = searchParams.get('taskType');
 
-    // Build query for domain tasks (no userId)
+    // Build query for domain tasks from domainTasks collection
     const query: any = { 
-      isActive: true,
-      userId: { $exists: false },
-      domain: { $exists: true }
+      isActive: true
     };
     
     if (domain) {
-      // Include tasks for the specific domain AND universal tasks (domain='all')
-      query.$or = [
-        { domain: domain },
-        { domain: 'all' }
-      ];
+      // Only get tasks for the specific domain
+      query.domain = domain;
+    } else {
+      // If no domain specified, return error
+      return NextResponse.json({ error: 'Domain parameter is required' }, { status: 400 });
     }
     
     if (category) {
@@ -54,8 +52,8 @@ export async function GET(request: NextRequest) {
       query.taskType = taskType;
     }
 
-    // Get domain tasks
-    const tasks = await MasterTask.find(query)
+    // Get domain tasks from domainTasks collection
+    const tasks = await DomainTask.find(query)
       .sort({ priority: 1, createdAt: -1 })
       .lean();
     

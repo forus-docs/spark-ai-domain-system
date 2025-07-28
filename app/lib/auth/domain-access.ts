@@ -59,7 +59,7 @@ export async function verifyDomainAccess(
 
     // Check if user is a member of the requested domain
     const hasDomainAccess = user.domains?.some(
-      (domain: any) => domain.domain.toString() === domainId
+      (domain: any) => domain.domainId === domainId
     );
 
     if (!hasDomainAccess) {

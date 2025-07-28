@@ -1,5 +1,6 @@
 import { connectToDatabase } from '@/app/lib/database';
 import MasterTask from '@/app/models/MasterTask';
+import DomainTask from '@/app/models/DomainTask';
 
 export interface DomainTaskAdoptionRequest {
   domainId: string;
@@ -34,38 +35,50 @@ export class DomainAdoptionService {
     await connectToDatabase();
 
     try {
-      // Get the MasterTask (without domain field)
+      // Get the MasterTask (with empty domain per unified schema)
       const masterTask = await MasterTask.findOne({ 
-        $or: [
-          { masterTaskId: request.masterTaskId },
-          { _id: request.masterTaskId }
-        ],
-        domain: { $exists: false } // Ensure it's a master task
+        $and: [
+          {
+            $or: [
+              { masterTaskId: request.masterTaskId },
+              { _id: request.masterTaskId }
+            ]
+          },
+          {
+            $or: [
+              { domain: { $exists: false } },
+              { domain: "" },
+              { domain: null }
+            ]
+          }
+        ]
       });
 
       if (!masterTask) {
         return { success: false, error: 'Master task not found' };
       }
 
-      // Check if already adopted
-      const existingDomainTask = await MasterTask.findOne({
+      // Check if already adopted in domainTasks collection
+      const existingDomainTask = await DomainTask.findOne({
         domain: request.domainId,
-        masterTaskId: masterTask.masterTaskId,
-        userId: { $exists: false } // Domain task, not user task
+        masterTaskId: masterTask.masterTaskId
       });
 
       if (existingDomainTask) {
         return { success: false, error: 'Task already adopted by this domain' };
       }
 
-      // Create domain task - simple copy with domain fields
+      // Create domain task - complete snapshot in domainTasks collection
       const domainTaskData = masterTask.toObject();
       delete domainTaskData._id;
+      delete domainTaskData.adoptedByDomains; // Remove this field from master
       
       // Add domain-specific fields
+      domainTaskData.masterTaskId = masterTask.masterTaskId; // Reference to original
       domainTaskData.domain = request.domainId;
       domainTaskData.adoptedAt = new Date();
       domainTaskData.adoptedBy = request.adoptedBy;
+      domainTaskData.adoptionNotes = '';
       
       // Apply customizations
       if (request.customizations) {
@@ -78,7 +91,15 @@ export class DomainAdoptionService {
         if (request.customizations.systemPrompt) domainTaskData.systemPrompt = request.customizations.systemPrompt;
       }
 
-      const domainTask = await MasterTask.create(domainTaskData);
+      // Initialize domain metrics
+      domainTaskData.domainMetrics = {
+        totalExecutions: 0,
+        averageCompletionTime: 0,
+        averageSuccessRate: 0,
+        lastExecuted: null
+      };
+
+      const domainTask = await DomainTask.create(domainTaskData);
 
       // Update MasterTask adoption tracking
       await this.updateMasterTaskAdoption(
@@ -149,19 +170,21 @@ export class DomainAdoptionService {
         ]
       });
 
-      // Get already adopted tasks for this domain (with non-empty domain field)
-      const adoptedTasks = await MasterTask.find({ 
-        domain: domainId,
-        masterTaskId: { $exists: true }, // Has a masterTaskId reference
-        userId: { $exists: false } // Domain tasks only
+      // Get already adopted tasks from domainTasks collection
+      const adoptedTasks = await DomainTask.find({ 
+        domain: domainId
       }).select('masterTaskId');
       
       const adoptedMasterTaskIds = new Set(adoptedTasks.map(t => t.masterTaskId));
 
-      // Filter and format available tasks
-      return masterTasks
-        .filter(task => !adoptedMasterTaskIds.has(task.masterTaskId))
-        .map(task => task.toObject()); // Return the complete task object
+      // Filter and format available tasks - include adoption status
+      return masterTasks.map(task => {
+        const taskObj = task.toObject();
+        return {
+          ...taskObj,
+          isAdoptedByDomain: adoptedMasterTaskIds.has(task.masterTaskId)
+        };
+      });
 
     } catch (error) {
       console.error('Error getting available tasks:', error);
@@ -180,10 +203,9 @@ export class DomainAdoptionService {
     await connectToDatabase();
 
     try {
-      const domainTask = await MasterTask.findOne({
+      const domainTask = await DomainTask.findOne({
         _id: domainTaskId,
-        domain: domainId,
-        userId: { $exists: false } // Domain task only
+        domain: domainId
       });
 
       if (!domainTask) {

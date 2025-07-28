@@ -130,7 +130,7 @@ export function ChatInterfaceV2({
           
           const formattedMessages: Message[] = data.messages.map((msg: any) => ({
             id: msg.messageId,
-            role: msg.role as 'user' | 'assistant',
+            role: msg.role as 'user' | 'assistant' | 'system',
             content: msg.content,
             timestamp: new Date(msg.createdAt),
           }));
@@ -839,26 +839,32 @@ export function ChatInterfaceV2({
             key={message.id}
             className={cn(
               "flex gap-3",
-              message.role === 'user' && "flex-row-reverse"
+              message.role === 'user' && "flex-row-reverse",
+              message.role === 'system' && "justify-center"
             )}
           >
-            <div className={cn(
-              "flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center",
-              message.role === 'assistant' ? "bg-blue-100" : "bg-gray-100"
-            )}>
-              {message.role === 'assistant' ? (
-                <Bot className="w-4 h-4 text-blue-600" />
-              ) : (
-                <User className="w-4 h-4 text-gray-600" />
-              )}
-            </div>
+            {message.role !== 'system' && (
+              <div className={cn(
+                "flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center",
+                message.role === 'assistant' ? "bg-blue-100" : "bg-gray-100"
+              )}>
+                {message.role === 'assistant' ? (
+                  <Bot className="w-4 h-4 text-blue-600" />
+                ) : (
+                  <User className="w-4 h-4 text-gray-600" />
+                )}
+              </div>
+            )}
             <div
               className={cn(
-                "flex-1 max-w-[80%]",
+                "flex-1",
+                message.role === 'system' ? "max-w-[90%]" : "max-w-[80%]",
                 message.type === 'form-field' || message.type === 'form-review' 
                   ? "" 
                   : "rounded-lg px-4 py-2",
-                message.role === 'assistant'
+                message.role === 'system'
+                  ? "bg-gradient-to-r from-gray-50 to-gray-100 border border-gray-200 text-gray-700"
+                  : message.role === 'assistant'
                   ? (message.type === 'form-field' || message.type === 'form-review' ? "" : "bg-white border border-gray-200")
                   : "bg-blue-600 text-white"
               )}
@@ -874,6 +880,11 @@ export function ChatInterfaceV2({
                       onInteract={handleArtifactInteract}
                       requiredParameters={processData?.requiredParameters}
                     />
+                  ) : message.role === 'system' ? (
+                    <div className="text-sm">
+                      <div className="font-semibold mb-2 text-gray-600">Task Introduction</div>
+                      <div className="whitespace-pre-wrap">{message.content}</div>
+                    </div>
                   ) : (
                     <p className="text-sm whitespace-pre-wrap">{message.content}</p>
                   )}

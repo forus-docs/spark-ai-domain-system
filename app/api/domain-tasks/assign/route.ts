@@ -3,8 +3,10 @@ import { verifyAccessToken } from '@/app/lib/auth/jwt';
 import { connectToDatabase } from '@/app/lib/database';
 import DomainTask from '@/app/models/DomainTask';
 import TaskExecution from '@/app/models/TaskExecution';
+import ExecutionMessage from '@/app/models/ExecutionMessage';
 import User from '@/app/models/User';
 import { v4 as uuidv4 } from 'uuid';
+import mongoose from 'mongoose';
 
 export const dynamic = 'force-dynamic';
 
@@ -35,6 +37,9 @@ export async function POST(request: NextRequest) {
     // Get domain task ID from request body
     const body = await request.json();
     domainTaskId = body.taskId;
+    
+    console.log('Assign task request - domainTaskId:', domainTaskId);
+    console.log('domainTaskId type:', typeof domainTaskId);
 
     if (!domainTaskId) {
       return NextResponse.json({ error: 'Task ID is required' }, { status: 400 });
@@ -42,7 +47,10 @@ export async function POST(request: NextRequest) {
 
     // Get the domain task with its complete snapshot
     const domainTask = await DomainTask.findById(domainTaskId);
+    console.log('Domain task found:', !!domainTask);
+    
     if (!domainTask) {
+      console.log('Domain task not found for ID:', domainTaskId);
       return NextResponse.json({ error: 'Domain task not found' }, { status: 404 });
     }
 
@@ -53,7 +61,7 @@ export async function POST(request: NextRequest) {
     }
 
     const hasDomainAccess = user.domains?.some(
-      (domain: any) => domain.domain.toString() === domainTask.domain.toString()
+      (domain: any) => domain.domainId === domainTask.domain
     );
 
     if (!hasDomainAccess) {
@@ -79,31 +87,18 @@ export async function POST(request: NextRequest) {
 
     // Create task execution (combining UserTask + TaskExecution)
     const executionId = uuidv4();
+    
+    // Convert domainTask to plain object to avoid Mongoose document issues
+    const domainTaskObj = domainTask.toObject();
+    
     const taskExecution = new TaskExecution({
       executionId,
-      userId,
-      domainId: domainTask.domain,
-      domainTaskId,
+      userId: new mongoose.Types.ObjectId(userId),
+      domainId: new mongoose.Types.ObjectId(domainTask.domain), // Convert string to ObjectId
+      domainTaskId: domainTask._id, // Already an ObjectId
       
-      // Complete task snapshot from DomainTask
-      taskSnapshot: {
-        title: domainTask.masterTaskSnapshot.title,
-        description: domainTask.masterTaskSnapshot.description,
-        taskType: domainTask.masterTaskSnapshot.taskType,
-        executionModel: domainTask.masterTaskSnapshot.executionModel,
-        aiAgentRole: domainTask.masterTaskSnapshot.aiAgentRole,
-        systemPrompt: domainTask.customizations?.systemPrompt || domainTask.masterTaskSnapshot.systemPrompt,
-        customInstructions: domainTask.customizations?.customInstructions || domainTask.masterTaskSnapshot.customInstructions,
-        sop: domainTask.masterTaskSnapshot.sop,
-        procedures: domainTask.masterTaskSnapshot.procedures,
-        checklist: domainTask.masterTaskSnapshot.checklist,
-        requiredParameters: domainTask.masterTaskSnapshot.requiredParameters,
-        formSchema: domainTask.masterTaskSnapshot.formSchema,
-        reward: domainTask.customizations?.reward || domainTask.masterTaskSnapshot.reward,
-        estimatedDuration: domainTask.masterTaskSnapshot.estimatedDuration,
-        difficultyLevel: domainTask.masterTaskSnapshot.difficultyLevel,
-        introductionMessage: domainTask.customizations?.introductionMessage || domainTask.masterTaskSnapshot.introductionMessage
-      },
+      // Complete task snapshot from DomainTask - store as-is for QMS compliance
+      taskSnapshot: domainTaskObj,
       
       // Initial state
       status: 'assigned',
@@ -111,7 +106,38 @@ export async function POST(request: NextRequest) {
       messages: []
     });
 
-    await taskExecution.save();
+    try {
+      await taskExecution.save();
+    } catch (saveError: any) {
+      console.error('TaskExecution save error:', saveError);
+      console.error('Validation errors:', saveError.errors);
+      if (saveError.errors) {
+        Object.keys(saveError.errors).forEach(key => {
+          console.error(`Field ${key}:`, saveError.errors[key].message);
+        });
+      }
+      throw saveError;
+    }
+
+    // Create intro message if task has one
+    if (domainTaskObj.intro || domainTaskObj.introductionMessage) {
+      const introContent = domainTaskObj.intro || domainTaskObj.introductionMessage;
+      const introMessage = new ExecutionMessage({
+        messageId: uuidv4(),
+        executionId: executionId,
+        role: 'system',
+        content: introContent,
+        text: introContent,
+        userId: userId,
+        isCreatedByUser: false
+      });
+      
+      await introMessage.save();
+      
+      // Add the message to the task execution
+      taskExecution.messages.push(introMessage._id);
+      await taskExecution.save();
+    }
 
     console.log(`Task ${domainTaskId} assigned to user ${userId} with execution ${executionId}`);
     
