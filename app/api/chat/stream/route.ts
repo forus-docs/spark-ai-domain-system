@@ -71,8 +71,12 @@ export async function POST(request: NextRequest) {
         throw new Error('Task execution not found');
       }
       
-      // Verify user owns this execution
-      if (taskExecution.userId.toString() !== userId) {
+      // Verify user owns this execution or is a member (for workstreams)
+      const isOwner = taskExecution.userId.toString() === userId;
+      const isMember = taskExecution.taskSnapshot?.taskType === 'workstream_basic' && 
+        taskExecution.taskSnapshot?.members?.some((m: any) => m.userId === userId);
+      
+      if (!isOwner && !isMember) {
         throw new Error('Unauthorized access to task execution');
       }
       

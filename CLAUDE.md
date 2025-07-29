@@ -51,23 +51,46 @@ npx tsx scripts/create-read-memo-task.ts
 
 ## Architecture Overview
 
-### QMS-Compliant 3-Level Architecture (January 2025)
-The system uses separate collections for complete audit trails:
+### Three-Tier Data Architecture (January 2025)
+
+**CRITICAL**: Data flows through THREE SEPARATE MongoDB collections:
 
 ```
-masterTasks → domainTasks → taskExecutions (with executionMessages)
+masterTasks (collection) → domainTasks (collection) → taskExecutions (collection)
+     ↓                           ↓                            ↓
+  Templates                Domain copies              User assignments
+  (domain: "")            (domain: "id")             (with execution)
 ```
 
 **Key Points:**
-- **Separate Collections**: Each level has its own MongoDB collection
-- **Complete Snapshots**: Each level stores complete immutable data
-- **No Dynamic Fetching**: TaskExecution uses ONLY its snapshot data
-- **Simplified Schema**: TaskExecution accepts any structure via `Schema.Types.Mixed`
+- **THREE SEPARATE COLLECTIONS** - Not a unified collection
+- Each level contains COMPLETE SNAPSHOT - no dynamic lookups
+- UserTask model removed - merged into TaskExecution
+- QMS compliance through immutable snapshots
 
-### Collection Structure
-- **masterTasks**: Task templates (no domain, no userId)
-- **domainTasks**: Domain-adopted tasks with complete snapshots (has domain, no userId)
-- **taskExecutions**: User executions with complete snapshots (has userId, domainId, taskSnapshot)
+### MongoDB Collections Map
+
+```
+Database: spark-ai (port 27017)
+
+TASK COLLECTIONS:
+- masterTasks     → MasterTask templates (domain: "" or null)
+- domainTasks     → Domain-adopted tasks (separate collection!)
+- taskExecutions  → User assignments with execution state
+
+USER/DOMAIN COLLECTIONS:
+- users           → User accounts with nested identity
+- domains         → Domain configurations with invite codes
+- invites         → Domain invitation management
+
+MESSAGING COLLECTIONS:
+- executionMessages    → Chat messages within task executions
+- workstreamMessages   → Group chat messages (Socket.io)
+
+LEGACY COLLECTIONS (being phased out):
+- userTasks       → Merged into taskExecutions
+- workstreams     → Using taskExecutions with taskType: 'workstream'
+```
 
 ### Core Services Architecture
 
@@ -165,11 +188,11 @@ user.identity.verificationType
 }
 ```
 
-**Domain Membership (CRITICAL - Field Names):**
+**Domain Membership:**
 ```typescript
 user.domains: [{
-  domainId: string,      // NOT domain.domain!
-  role: string,          // Role name
+  domainId: string,     // Domain ID
+  role: string,         // User's role in domain  
   joinedAt: Date
 }]
 ```
@@ -208,17 +231,20 @@ All indexes use readable names starting with `idx_`:
 - `idx_text_search` - Full-text search indexes
 See `/docs/database-indexes.md` for complete documentation.
 
-### Collection Queries
-```typescript
-// Find MasterTasks (templates) - in masterTasks collection
-{ isActive: true }
+### Task Adoption Flow
 
-// Find DomainTasks - in domainTasks collection
-{ domain: "domainId" }
+1. **MasterTask → DomainTask**
+   - API: `POST /api/domains/[domainId]/adopt-task`
+   - Source: `masterTasks` collection
+   - Destination: `domainTasks` collection (SEPARATE!)
+   - Creates complete snapshot with all MasterTask data
 
-// Find TaskExecutions - in taskExecutions collection
-{ userId: "userId", domainId: "domainId" }
-```
+2. **DomainTask → TaskExecution**
+   - API: `POST /api/domain-tasks/assign`
+   - Source: `domainTasks` collection  
+   - Destination: `taskExecutions` collection
+   - Creates TaskExecution with complete task snapshot
+   - User navigates directly to `/chat/{executionId}`
 
 ## API Integration Points
 
@@ -318,7 +344,7 @@ res.write(`data: ${JSON.stringify({ chunk })}\n\n`);
 1. **No Dynamic Fetching**: TaskExecutions must NEVER fetch from MasterTask/DomainTask
 2. **Complete Snapshots**: Each level must copy ALL data needed for downstream
 3. **User Verification**: Always check `user.identity.isVerified` (nested structure)
-4. **Domain Access**: Check `user.domains[].domainId` NOT `domain.domain`
+4. **Domain Access**: Check `domains.domainId` field
 5. **Use `.toObject()`**: Convert Mongoose documents before storing snapshots
 6. **Error Responses**: Use consistent format: `{ error: string }`
 7. **Direct Navigation**: After assignment, navigate directly to `/chat/{executionId}`
@@ -361,21 +387,47 @@ if (!accessCheck.isValid) {
 }
 ```
 
-### Common Query Patterns
+### Finding Tasks in Correct Collections
+
 ```typescript
-// Check domain membership (CRITICAL)
-const hasDomainAccess = user.domains?.some(
-  d => d.domainId === domainId  // NOT d.domain!
-);
+// Find MasterTasks (templates)
+await MasterTask.find({ 
+  domain: { $in: ['', null] },
+  isActive: true 
+})
 
-// Find DomainTask by ID
-const domainTask = await DomainTask.findById(domainTaskId);
-
-// Check if task already adopted
-const existing = await DomainTask.findOne({
+// Find DomainTasks - USE DomainTask MODEL!
+await DomainTask.find({ 
   domain: domainId,
-  masterTaskId: masterTaskId
-});
+  isActive: true 
+})
+
+// Find TaskExecutions for user
+await TaskExecution.find({
+  userId: userId,
+  domainId: domainId,
+  status: { $ne: 'completed' }
+})
+```
+
+### Workstream Implementation
+
+Workstreams use existing collections:
+- DomainTask with `taskType: 'workstream_basic'`
+- TaskExecution with workstream members in taskSnapshot
+- ExecutionMessage for chat messages
+
+```typescript
+// Check if task has AI
+const hasAI = taskSnapshot?.aiAgentAttached !== false;
+// Hide AI UI elements (tokens, cost) if no AI attached
+```
+
+### Domain User Query Pattern
+
+```typescript
+// Check membership
+const isMember = user.domains.some((d: any) => d.domainId === domainId);
 ```
 
 ## MongoDB MCP Tools
@@ -409,33 +461,40 @@ Available tools (prefix: `mcp__mongodb__`):
 - Config: `.vscode/launch.json`
 - Full-stack debugging with breakpoints
 
-### Common Development Tasks
+### Common Debugging Queries
+
 ```bash
-# Check for TypeScript errors
-npm run typecheck
+# Check if DomainTask exists (correct collection!)
+mcp__mongodb__find { 
+  "database": "spark-ai",
+  "collection": "domainTasks",
+  "filter": { "domain": "domainId", "taskType": "workstream_basic" } 
+}
 
-# Find specific task in DB
-mcp__mongodb__find { "collection": "masterTasks", "filter": { "_id": "..." } }
+# Check user's domains (nested structure)
+mcp__mongodb__find { 
+  "database": "spark-ai",
+  "collection": "users",
+  "filter": { "_id": "userId" },
+  "projection": { "domains": 1 } 
+}
 
-# Check user's domains
-mcp__mongodb__find { "collection": "users", "filter": { "_id": "..." }, "projection": { "domains": 1 } }
-
-# Check task executions
-mcp__mongodb__find { "collection": "taskExecutions", "filter": { "userId": "..." } }
-
-# Verify MasterTask availability
-mcp__mongodb__find { "collection": "masterTasks", "filter": { "isActive": true, "domain": "" } }
+# Verify TaskExecution has full snapshot
+mcp__mongodb__find { 
+  "database": "spark-ai",
+  "collection": "taskExecutions",
+  "filter": { "executionId": "..." },
+  "projection": { "taskSnapshot": 1 } 
+}
 ```
 
 ## Recent Architecture Changes
 
 ### January 2025 Updates
-1. **Separated Collections**: masterTasks, domainTasks, taskExecutions now in separate collections
-2. **Simplified TaskExecution**: taskSnapshot uses Schema.Types.Mixed to accept any structure
-3. **Fixed Domain Access**: Corrected field name from `domain.domain` to `domainId`
-4. **Complete Snapshots**: Each level stores complete immutable data
-5. **Direct Assignment**: Creates TaskExecution immediately on assignment
-6. **No Data Transformation**: Store DomainTask snapshot as-is in TaskExecution
+- domainTasks is a SEPARATE collection, not part of masterTasks
+- UserTask model removed - functionality merged into TaskExecution
+- Workstreams implemented using existing task infrastructure
+- Direct assignment flow: DomainTask → TaskExecution → Chat
 
 ## Form-js Integration
 - Installed `@bpmn-io/form-js` for form rendering and validation
@@ -460,6 +519,15 @@ mcp__mongodb__find { "collection": "masterTasks", "filter": { "isActive": true, 
 
 ### Chat Interface
 - Uses TaskExecution snapshot data
+- Checks `taskSnapshot.aiAgentAttached` for AI features
+- Hides token count, cost, LLM provider for non-AI tasks
 - Conversational form rendering for form-based tasks
-- Real-time streaming with SSE
-- Token tracking and display
+
+## Common Pitfalls to Avoid
+
+1. **DON'T** look for DomainTasks in masterTasks collection
+2. **DON'T** use MasterTask model for domainTasks queries
+3. **DON'T** assume unified collection when docs mention it
+4. **DON'T** forget to check both domain fields in user.domains
+5. **DON'T** dynamically fetch from parent collections
+6. **DON'T** create UserTask - use TaskExecution directly

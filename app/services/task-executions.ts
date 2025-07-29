@@ -62,7 +62,14 @@ export class TaskExecutionService {
     limit: number = 20,
     offset: number = 0
   ): Promise<ITaskExecution[]> {
-    const query: any = { userId };
+    // Build query to find tasks where user is either the owner OR a member (for workstreams)
+    const query: any = {
+      $or: [
+        { userId }, // User owns the task
+        { 'taskSnapshot.members.userId': userId } // User is a member (for workstreams)
+      ]
+    };
+    
     if (domainId) {
       query.domainId = domainId;
     }

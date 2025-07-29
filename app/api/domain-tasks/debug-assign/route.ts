@@ -100,8 +100,8 @@ export async function POST(request: NextRequest) {
 
     try {
       debugInfo.data.userDomains = user.domains?.map((d: any) => ({
-        domain: d.domain?.toString() || 'null',
-        role: d.role?.toString() || 'null',
+        domainId: d.domainId || 'null',
+        role: d.role || 'null',
         raw: JSON.stringify(d)
       }));
     } catch (mapError) {

@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Sidebar } from '@/app/components/sidebar';
-import { LeftDrawer } from '@/app/components/left-drawer';
+import { WorkstreamDrawer } from '@/app/components/workstream-drawer';
 import { SparkAppBar } from '@/app/components/spark-app-bar';
 import { useAuth } from '@/app/contexts/auth-context';
 import { useDomain } from '@/app/contexts/domain-context';
@@ -11,7 +11,7 @@ import { ProtectedRoute } from '@/app/components/protected-route';
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [leftDrawerOpen, setLeftDrawerOpen] = useState(false);
+  const [workstreamDrawerOpen, setWorkstreamDrawerOpen] = useState(false);
   const { user } = useAuth();
   const { currentDomain } = useDomain();
   const pathname = usePathname();
@@ -28,12 +28,12 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <ProtectedRoute>
       <div className="min-h-screen bg-gray-50">
-        {/* Left Drawer */}
-        <LeftDrawer 
-          isOpen={leftDrawerOpen} 
-          onClose={() => setLeftDrawerOpen(false)} 
+        {/* Workstream Drawer */}
+        <WorkstreamDrawer 
+          isOpen={workstreamDrawerOpen} 
+          onClose={() => setWorkstreamDrawerOpen(false)} 
         />
-
+        
         {/* Mobile Sidebar Overlay */}
         {sidebarOpen && (
           <div 
@@ -55,7 +55,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         {/* Standardized App Bar - Show on all pages except auth pages */}
         <SparkAppBar 
           onMenuClick={() => setSidebarOpen(true)}
-          onLeftMenuClick={() => setLeftDrawerOpen(true)}
+          onPlusClick={() => setWorkstreamDrawerOpen(true)}
         />
         
         {/* Main Content */}

@@ -36,9 +36,21 @@ export async function GET(
   const { executionId } = params;
 
   try {
-    // Verify ownership
+    // Verify ownership or membership
     const taskExecution = await TaskExecutionService.getTaskExecution(executionId);
-    if (!taskExecution || taskExecution.userId.toString() !== userId) {
+    if (!taskExecution) {
+      return NextResponse.json(
+        { error: 'Task execution not found' },
+        { status: 404 }
+      );
+    }
+
+    // Check if user has access to this task execution
+    const isOwner = taskExecution.userId.toString() === userId;
+    const isMember = taskExecution.taskSnapshot?.taskType === 'workstream_basic' && 
+      taskExecution.taskSnapshot?.members?.some((m: any) => m.userId === userId);
+
+    if (!isOwner && !isMember) {
       return NextResponse.json(
         { error: 'Task execution not found' },
         { status: 404 }

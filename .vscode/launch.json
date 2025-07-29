@@ -5,18 +5,37 @@
       "name": "App Spark: debug full stack",
       "type": "node",
       "request": "launch",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev"],
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["server-dev.js"],
       "cwd": "${workspaceFolder}",
       "serverReadyAction": {
-        "pattern": "ready on",
+        "pattern": "Ready on",
         "uriFormat": "http://localhost:3001",
         "action": "debugWithChrome"
       },
       "skipFiles": ["<node_internals>/**"],
       "env": {
-        "NODE_OPTIONS": "--inspect"
-      }
+        "NODE_ENV": "development"
+      },
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "App Spark: npm dev",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "cwd": "${workspaceFolder}",
+      "serverReadyAction": {
+        "pattern": "Ready on",
+        "uriFormat": "http://localhost:3001",
+        "action": "openExternally"
+      },
+      "skipFiles": ["<node_internals>/**"],
+      "env": {
+        "NODE_ENV": "development"
+      },
+      "console": "integratedTerminal"
     }
   ]
 }

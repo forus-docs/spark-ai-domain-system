@@ -3,21 +3,21 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/app/lib/utils';
-import { Send, X, Bot, User, Loader2, Info, FileText } from 'lucide-react';
+import { Send, X, Bot, User, Loader2, Info, FileText, Code2 } from 'lucide-react';
 import { SSE } from 'sse.js';
 import { useChat } from '@/app/contexts/chat-context';
 import { useDomain } from '@/app/contexts/domain-context';
 import { useAuth } from '@/app/contexts/auth-context';
 import { ConversationInfoPopup } from './conversation-info-popup';
 import { SopPopup } from './sop-popup';
+import { TaskSnapshotPopup } from './task-snapshot-popup';
 import { SmartMessageDisplay } from './smart-message-display';
 import { FileUploadSimple } from './file-upload-simple';
 import { FilePreviewItem } from './file-preview-item';
 import { StructuredDataDisplay } from './structured-data-display';
 import { ForusSpinner } from './forus-spinner';
 import { AnimatedCounter } from './animated-counter';
-import { FormMessage, formJsStyles } from './form-message';
-import { ConversationalFormRenderer, type FormSchema } from '@/app/lib/services/conversational-form.service';
+import { DomainTasksDrawer } from './domain-tasks-drawer';
 
 interface Message {
   id: string;
@@ -26,16 +26,6 @@ interface Message {
   timestamp: Date;
   isStreaming?: boolean;
   extractedData?: any;
-  // Form-specific fields
-  type?: 'text' | 'form-field' | 'form-review' | 'file-upload';
-  fieldKey?: string;
-  fieldValue?: any;
-  schema?: FormSchema;
-  data?: Record<string, any>;
-  actions?: Array<{
-    label: string;
-    value: any;
-  }>;
 }
 
 interface ChatInterfaceProps {
@@ -47,6 +37,7 @@ interface ChatInterfaceProps {
   chatId?: string; // For existing conversations
   executionId?: string; // For loading existing task executions
   userTaskId?: string; // For linking to UserTask
+  taskSnapshot?: any; // Complete task snapshot for context
 }
 
 export function ChatInterfaceV2({ 
@@ -57,12 +48,16 @@ export function ChatInterfaceV2({
   accessToken,
   chatId,
   executionId: propExecutionId,
-  userTaskId 
+  userTaskId,
+  taskSnapshot
 }: ChatInterfaceProps) {
   const router = useRouter();
   const { updateChatActivity } = useChat();
   const { currentDomain } = useDomain();
   const { setUserVerified } = useAuth();
+  
+  // Check if AI is attached to this task
+  const hasAI = taskSnapshot?.aiAgentAttached !== false;
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoadingMessages, setIsLoadingMessages] = useState(!!propExecutionId);
   // Use prop executionId if provided, otherwise fall back to chatId
@@ -73,6 +68,7 @@ export function ChatInterfaceV2({
   const [isStreaming, setIsStreaming] = useState(false);
   const [showInfoPopup, setShowInfoPopup] = useState(false);
   const [showSopPopup, setShowSopPopup] = useState(false);
+  const [showSnapshotPopup, setShowSnapshotPopup] = useState(false);
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   const [extractedFields, setExtractedFields] = useState<Record<string, any>>({});
   const [processData, setProcessData] = useState<any>(null);
@@ -83,9 +79,9 @@ export function ChatInterfaceV2({
   // Should be configurable per process from process.aiModel or process.llmProvider
   // Each process should be able to specify its own LLM (GPT-4, Claude, Gemini, etc.)
   const [llmProvider] = useState('Gemini 1.5 Flash');
+  const [showTasksDrawer, setShowTasksDrawer] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const sseRef = useRef<SSE | null>(null);
-  const formRendererRef = useRef<ConversationalFormRenderer | null>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -94,14 +90,9 @@ export function ChatInterfaceV2({
   // Prevent body scrolling when chat is open
   useEffect(() => {
     document.body.classList.add('chat-open');
-    // Add form-js styles
-    const styleElement = document.createElement('style');
-    styleElement.textContent = formJsStyles;
-    document.head.appendChild(styleElement);
     
     return () => {
       document.body.classList.remove('chat-open');
-      document.head.removeChild(styleElement);
     };
   }, []);
 
@@ -182,8 +173,8 @@ export function ChatInterfaceV2({
       };
       
       loadMessages();
-    } else {
-      // New conversation - show welcome message
+    } else if (hasAI) {
+      // New conversation - show welcome message (but not for workstreams)
       setMessages([{
         id: '1',
         role: 'assistant',
@@ -191,7 +182,7 @@ export function ChatInterfaceV2({
         timestamp: new Date(),
       }]);
     }
-  }, [propExecutionId, masterTaskName, executionModel, accessToken]);
+  }, [propExecutionId, masterTaskName, executionModel, accessToken, hasAI]);
 
   useEffect(() => {
     scrollToBottom();
@@ -212,22 +203,6 @@ export function ChatInterfaceV2({
         if (response.ok) {
           const data = await response.json();
           setProcessData(data);
-          
-          // Initialize form renderer if we have form schema
-          if (data.formSchema && executionModel === 'form') {
-            formRendererRef.current = new ConversationalFormRenderer(data.formSchema);
-            
-            // Start conversational flow after initial intro
-            setTimeout(() => {
-              const firstFieldMessage = formRendererRef.current!.startConversation();
-              const message: Message = {
-                id: Date.now().toString(),
-                ...firstFieldMessage,
-                timestamp: new Date()
-              };
-              setMessages(prev => [...prev, message]);
-            }, 2000); // Give time for intro message
-          }
         }
       } catch (error) {
         console.error('Error fetching process data:', error);
@@ -272,73 +247,6 @@ export function ChatInterfaceV2({
     // You can emit this to parent component or store for later use
   };
 
-  const handleFormFieldSubmit = useCallback((fieldKey: string, value: any) => {
-    console.log('Form field submitted:', fieldKey, value);
-    
-    if (!formRendererRef.current) return;
-    
-    // Process the field response
-    const result = formRendererRef.current.processFieldResponse(fieldKey, value);
-    
-    if (!result.isValid) {
-      // Show validation error
-      const errorMessage: Message = {
-        id: Date.now().toString(),
-        role: 'assistant',
-        content: result.error || 'Invalid input. Please try again.',
-        timestamp: new Date(),
-        type: 'text'
-      };
-      setMessages(prev => [...prev, errorMessage]);
-    } else if (result.nextMessage) {
-      // Add next field message
-      const nextMessage: Message = {
-        id: Date.now().toString(),
-        ...result.nextMessage,
-        timestamp: new Date()
-      };
-      setMessages(prev => [...prev, nextMessage]);
-    } else if (result.isComplete) {
-      // All fields collected, show review
-      const reviewMessage: Message = {
-        id: Date.now().toString(),
-        ...formRendererRef.current.generateReviewMessage(),
-        timestamp: new Date()
-      };
-      setMessages(prev => [...prev, reviewMessage]);
-    }
-    
-    scrollToBottom();
-  }, []);
-
-  const handleFormSubmit = useCallback(async (formData: Record<string, any>) => {
-    console.log('Form submitted:', formData);
-    
-    // Add user confirmation message
-    const confirmMessage: Message = {
-      id: Date.now().toString(),
-      role: 'user',
-      content: 'Confirmed all information',
-      timestamp: new Date(),
-      type: 'text'
-    };
-    setMessages(prev => [...prev, confirmMessage]);
-    
-    // Continue with regular chat flow, sending the form data
-    if (executionModel === 'form' && masterTaskId === 'identity-verification') {
-      // For identity verification, update user status
-      setUserVerified(true);
-      setShowPostCompletedSpinner(true);
-      
-      // Redirect after delay
-      setTimeout(() => {
-        router.push(`/${currentDomain?.slug || ''}`);
-      }, 3000);
-    }
-    
-    // You can send the formData to the AI for further processing
-    // handleSend(`Form data submitted: ${JSON.stringify(formData)}`);
-  }, [executionModel, masterTaskId, setUserVerified, router, currentDomain]);
 
   const handleArtifactInteract = useCallback(async (action: string, data?: any) => {
     console.log('Artifact interaction:', action, data);
@@ -505,78 +413,9 @@ export function ChatInterfaceV2({
     }
   }, [isStreaming, userTaskId, messages, accessToken, masterTaskId, masterTaskName, executionModel, currentDomain?.id, executionId, updateChatActivity, chatId, router, setUserVerified]);
 
-  const handleDocumentExtraction = async (file: File) => {
-    // Simulate AI extraction from document
-    // In real implementation, this would call an OCR/AI service
-    console.log('Extracting data from document:', file.name);
-    
-    // Add AI processing message
-    const processingMessage: Message = {
-      id: Date.now().toString(),
-      role: 'assistant',
-      content: 'Processing your document... 🔄',
-      timestamp: new Date(),
-      type: 'text'
-    };
-    setMessages(prev => [...prev, processingMessage]);
-    
-    // Simulate processing delay
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    // Mock extracted data (in real app, this would come from OCR/AI)
-    const extractedData = {
-      firstName: 'John',
-      lastName: 'Smith',
-      idNumber: 'A1234567',
-      dateOfBirth: '1990-01-15',
-      nationality: 'South African',
-      gender: 'male',
-      documentType: 'national_id'
-    };
-    
-    // Update form renderer with extracted data
-    if (formRendererRef.current) {
-      formRendererRef.current.setExtractedData(extractedData);
-      
-      // Start form conversation with extracted data
-      const firstFieldMessage = formRendererRef.current.startConversation();
-      const message: Message = {
-        id: (Date.now() + 1).toString(),
-        ...firstFieldMessage,
-        timestamp: new Date()
-      };
-      
-      // Replace processing message with success and first field
-      setMessages(prev => prev.slice(0, -1).concat([
-        {
-          id: Date.now().toString(),
-          role: 'assistant',
-          content: 'Great! I\'ve extracted information from your document. Let\'s verify each field:',
-          timestamp: new Date(),
-          type: 'text'
-        },
-        message
-      ]));
-    }
-  };
 
   const handleSend = useCallback(async () => {
     if ((!input.trim() && attachedFiles.length === 0) || isStreaming) return;
-    
-    // Check if this is a form execution with document upload
-    if (executionModel === 'form' && attachedFiles.length > 0 && formRendererRef.current) {
-      // Handle document extraction for forms
-      const documentFile = attachedFiles.find(f => 
-        f.type.startsWith('image/') || f.type === 'application/pdf'
-      );
-      
-      if (documentFile) {
-        await handleDocumentExtraction(documentFile);
-        setAttachedFiles([]); // Clear files after processing
-        setInput('');
-        return;
-      }
-    }
 
     // Convert images and PDFs to base64
     const filePromises = attachedFiles
@@ -756,6 +595,55 @@ export function ChatInterfaceV2({
     }
   }, [input, attachedFiles, isStreaming, messages, accessToken, executionModel, masterTaskId, chatId, executionId, currentDomain?.id, masterTaskName, updateChatActivity, router, setUserVerified]);
 
+  const handleTaskSelect = (task: any) => {
+    // Clear the "/" from input and add the task title
+    setInput(`I'd like to work on "${task.title}"`);
+  };
+
+  const handleCopyChat = () => {
+    // Format chat messages for copying
+    const chatText = messages.map(msg => {
+      const role = msg.role === 'assistant' ? 'AI' : msg.role.charAt(0).toUpperCase() + msg.role.slice(1);
+      const timestamp = msg.timestamp.toLocaleTimeString();
+      return `[${timestamp}] ${role}: ${msg.content}`;
+    }).join('\n\n');
+
+    const fullText = `Chat: ${masterTaskName}\nExecution ID: ${executionId || 'N/A'}\n${'='.repeat(50)}\n\n${chatText}`;
+    
+    navigator.clipboard.writeText(fullText);
+    // TODO: Add toast notification
+  };
+
+  const handleDownloadChat = () => {
+    // Create chat export object
+    const chatExport = {
+      taskName: masterTaskName,
+      executionId: executionId || null,
+      exportDate: new Date().toISOString(),
+      messages: messages.map(msg => ({
+        id: msg.id,
+        role: msg.role,
+        content: msg.content,
+        timestamp: msg.timestamp
+      })),
+      metadata: {
+        tokenCount,
+        cost,
+        llmProvider
+      }
+    };
+
+    const blob = new Blob([JSON.stringify(chatExport, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `chat-${executionId || 'session'}-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-white overflow-hidden">
       {/* Header */}
@@ -765,6 +653,42 @@ export function ChatInterfaceV2({
           <h2 className="text-lg font-medium text-gray-900">{masterTaskName}</h2>
           
           <div className="flex items-center gap-1">
+            {/* Copy button */}
+            <button
+              onClick={handleCopyChat}
+              className="p-2 hover:bg-gray-100 rounded-md transition-colors"
+              aria-label="Copy chat"
+              title="Copy chat"
+            >
+              <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+              </svg>
+            </button>
+            
+            {/* Download button */}
+            <button
+              onClick={handleDownloadChat}
+              className="p-2 hover:bg-gray-100 rounded-md transition-colors"
+              aria-label="Download chat"
+              title="Download chat"
+            >
+              <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+            </button>
+            
+            {/* Code button - Task Snapshot */}
+            {taskSnapshot && (
+              <button
+                onClick={() => setShowSnapshotPopup(true)}
+                className="p-2 hover:bg-gray-100 rounded-md transition-colors"
+                aria-label="View task snapshot"
+                title="View task snapshot"
+              >
+                <Code2 className="w-5 h-5 text-gray-600" />
+              </button>
+            )}
+            
             {executionId && (
               <>
                 <button
@@ -798,23 +722,30 @@ export function ChatInterfaceV2({
         {/* Second line: Chips */}
         <div className="flex items-center gap-2">
           {/* LLM Provider Chip */}
-          <div className="inline-flex items-center px-2 py-1 rounded-full bg-blue-100 text-blue-700 text-xs font-medium">
-            {llmProvider}
-          </div>
+          {/* LLM Provider Chip - Hide for workstreams */}
+          {hasAI && (
+            <div className="inline-flex items-center px-2 py-1 rounded-full bg-blue-100 text-blue-700 text-xs font-medium">
+              {llmProvider}
+            </div>
+          )}
           
-          {/* Token Count Chip */}
-          <div className="inline-flex items-center px-2 py-1 rounded-full bg-green-100 text-green-700 text-xs font-medium">
-            {tokenCount === 0 ? (
-              <span>Usage</span>
-            ) : (
-              <AnimatedCounter value={tokenCount} suffix=" tokens" />
-            )}
-          </div>
+          {/* Token Count Chip - Hide for workstreams */}
+          {hasAI && (
+            <div className="inline-flex items-center px-2 py-1 rounded-full bg-green-100 text-green-700 text-xs font-medium">
+              {tokenCount === 0 ? (
+                <span>Usage</span>
+              ) : (
+                <AnimatedCounter value={tokenCount} suffix=" tokens" />
+              )}
+            </div>
+          )}
           
-          {/* Cost Chip */}
-          <div className="inline-flex items-center px-2 py-1 rounded-full bg-purple-100 text-purple-700 text-xs font-medium">
-            <AnimatedCounter value={cost} prefix="$" decimals={2} />
-          </div>
+          {/* Cost Chip - Hide for workstreams */}
+          {hasAI && (
+            <div className="inline-flex items-center px-2 py-1 rounded-full bg-purple-100 text-purple-700 text-xs font-medium">
+              <AnimatedCounter value={cost} prefix="$" decimals={2} />
+            </div>
+          )}
         </div>
       </div>
 
@@ -859,61 +790,35 @@ export function ChatInterfaceV2({
               className={cn(
                 "flex-1",
                 message.role === 'system' ? "max-w-[90%]" : "max-w-[80%]",
-                message.type === 'form-field' || message.type === 'form-review' 
-                  ? "" 
-                  : "rounded-lg px-4 py-2",
+                "rounded-lg px-4 py-2",
                 message.role === 'system'
                   ? "bg-gradient-to-r from-gray-50 to-gray-100 border border-gray-200 text-gray-700"
                   : message.role === 'assistant'
-                  ? (message.type === 'form-field' || message.type === 'form-review' ? "" : "bg-white border border-gray-200")
+                  ? "bg-white border border-gray-200"
                   : "bg-blue-600 text-white"
               )}
             >
-              {/* Regular text message */}
-              {message.type !== 'form-field' && message.type !== 'form-review' && (
-                <>
-                  {message.role === 'assistant' ? (
-                    <SmartMessageDisplay
-                      content={message.content}
-                      className="text-sm"
-                      onDataExtract={handleDataExtract(message.id)}
-                      onInteract={handleArtifactInteract}
-                      requiredParameters={processData?.requiredParameters}
-                    />
-                  ) : message.role === 'system' ? (
-                    <div className="text-sm">
-                      <div className="font-semibold mb-2 text-gray-600">Task Introduction</div>
-                      <div className="whitespace-pre-wrap">{message.content}</div>
-                    </div>
-                  ) : (
-                    <p className="text-sm whitespace-pre-wrap">{message.content}</p>
-                  )}
-                </>
-              )}
-              
-              {/* Form message */}
-              {(message.type === 'form-field' || message.type === 'form-review') && (
-                <>
-                  {message.content && (
-                    <p className="text-sm mb-2">{message.content}</p>
-                  )}
-                  <FormMessage
-                    type={message.type}
-                    schema={message.schema}
-                    data={message.data}
-                    fieldKey={message.fieldKey}
-                    fieldValue={message.fieldValue}
-                    actions={message.actions}
-                    onFieldSubmit={handleFormFieldSubmit}
-                    onSubmit={handleFormSubmit}
-                  />
-                </>
+              {message.role === 'assistant' ? (
+                <SmartMessageDisplay
+                  content={message.content}
+                  className="text-sm"
+                  onDataExtract={handleDataExtract(message.id)}
+                  onInteract={handleArtifactInteract}
+                  requiredParameters={processData?.requiredParameters}
+                />
+              ) : message.role === 'system' ? (
+                <div className="text-sm">
+                  <div className="font-semibold mb-2 text-gray-600">Task Introduction</div>
+                  <div className="whitespace-pre-wrap">{message.content}</div>
+                </div>
+              ) : (
+                <p className="text-sm whitespace-pre-wrap">{message.content}</p>
               )}
               
               {message.isStreaming && message.content && (
                 <span className="inline-block w-1 h-4 bg-gray-400 animate-pulse ml-1" />
               )}
-              {!message.isStreaming && message.type !== 'form-field' && message.type !== 'form-review' && (
+              {!message.isStreaming && (
                 <p className={cn(
                   "text-xs mt-1",
                   message.role === 'assistant' ? "text-gray-500" : "text-blue-100"
@@ -960,7 +865,15 @@ export function ChatInterfaceV2({
           <input
             type="text"
             value={input}
-            onChange={(e) => setInput(e.target.value)}
+            onChange={(e) => {
+              const value = e.target.value;
+              setInput(value);
+              
+              // Show tasks drawer when user types "/"
+              if (value === '/' && value.length === 1) {
+                setShowTasksDrawer(true);
+              }
+            }}
             placeholder="Type your message..."
             disabled={isStreaming}
             className="flex-1 px-4 py-2 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500"
@@ -1010,6 +923,22 @@ export function ChatInterfaceV2({
             message="Processing your verification... Your journey continues!" 
           />
         </div>
+      )}
+
+      {/* Domain Tasks Drawer */}
+      <DomainTasksDrawer
+        isOpen={showTasksDrawer}
+        onClose={() => setShowTasksDrawer(false)}
+        onTaskSelect={handleTaskSelect}
+      />
+
+      {/* Task Snapshot Popup */}
+      {showSnapshotPopup && taskSnapshot && executionId && (
+        <TaskSnapshotPopup
+          taskSnapshot={taskSnapshot}
+          executionId={executionId}
+          onClose={() => setShowSnapshotPopup(false)}
+        />
       )}
 
     </div>

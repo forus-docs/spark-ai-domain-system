@@ -94,9 +94,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    const domainMembership = user.domains?.find((d: any) => 
-      (d.domain?.toString() === domainId || d.domainId === domainId)
-    );
+    const domainMembership = user.domains?.find((d: any) => d.domainId === domainId);
 
     if (!domainMembership) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });

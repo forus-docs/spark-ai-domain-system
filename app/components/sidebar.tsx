@@ -14,7 +14,8 @@ import {
   FileText, 
   CheckSquare, 
   BarChart3,
-  X
+  X,
+  UserPlus
 } from 'lucide-react';
 import { UserProfile } from '@/app/components/user-profile';
 
@@ -33,6 +34,7 @@ const navigationItems: NavItem[] = [
   { id: 'teams', name: 'Teams', href: '/teams', icon: Users, requiresDomain: true, order: 3 },
   { id: 'tasks', name: 'Tasks', href: '/tasks', icon: CheckSquare, requiresDomain: true, order: 4 },
   { id: 'dashboards', name: 'Dashboards', href: '/dashboards', icon: BarChart3, requiresDomain: true, order: 5 },
+  { id: 'invites', name: 'Invites', href: '/invites', icon: UserPlus, requiresDomain: true, order: 6 },
 ];
 
 interface SidebarProps {

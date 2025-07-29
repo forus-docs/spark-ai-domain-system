@@ -38,49 +38,20 @@ export async function GET(request: NextRequest) {
   const limit = parseInt(searchParams.get('limit') || '20');
   const offset = parseInt(searchParams.get('offset') || '0');
 
+  console.log('GET /api/task-executions - params:', { userId, domainId, limit, offset });
+
   try {
-    // Always get executions with domain information
-    const executionsWithDomain = await TaskExecutionService.getUserTaskExecutions(
+    // Get executions and filter by domain if requested
+    const executions = await TaskExecutionService.getUserTaskExecutions(
       userId,
-      undefined, // Don't filter by domain in the service
+      domainId || undefined, // Pass domainId to service if provided
       limit,
       offset
     );
 
-    // If no executions found, return empty array early
-    if (!executionsWithDomain || executionsWithDomain.length === 0) {
-      return NextResponse.json({ executions: [] });
-    }
+    console.log(`Found ${executions?.length || 0} executions for user ${userId} in domain ${domainId}`);
 
-    // Add domain information to all executions
-    // Get all unique domainTaskIds
-    const domainTaskIds = [...new Set(executionsWithDomain
-      .filter(exec => exec.domainTaskId)
-      .map(exec => exec.domainTaskId))];
-    
-    // Fetch domain information for these tasks (domain tasks in unified schema)
-    const domainTasks = await MasterTask.find({
-      _id: { $in: domainTaskIds },
-      domain: { $ne: '' } // Ensure it's a domain task
-    }).select('_id domain').lean();
-    
-    // Create a map of domainTaskId to domain
-    const domainTaskToDomainMap = new Map(
-      domainTasks.map((dt: any) => [dt._id.toString(), dt.domain.toString()])
-    );
-    
-    // Add domainId to each execution
-    const executionsWithDomainId = executionsWithDomain.map(exec => ({
-      ...exec,
-      domainId: exec.domainTaskId ? domainTaskToDomainMap.get(exec.domainTaskId) : null
-    }));
-
-    // Filter by domainId if requested
-    const executions = domainId 
-      ? executionsWithDomainId.filter(exec => exec.domainId === domainId)
-      : executionsWithDomainId;
-
-    return NextResponse.json({ executions });
+    return NextResponse.json({ executions: executions || [] });
   } catch (error) {
     console.error('Error fetching task executions:', error);
     return NextResponse.json(

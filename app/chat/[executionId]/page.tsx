@@ -82,11 +82,12 @@ export default function ChatPage({ params }: PageProps) {
   return (
     <ChatInterfaceV2
       executionId={taskExecution.executionId}
-      masterTaskName={taskExecution.title || 'Task Execution'}
-      executionModel={taskExecution.executionModel}
+      masterTaskName={taskExecution.taskSnapshot?.title || taskExecution.title || 'Task Execution'}
+      executionModel={taskExecution.taskSnapshot?.executionModel || taskExecution.executionModel}
       userTaskId={taskExecution.userTaskId}
       onClose={() => router.push(currentDomain?.slug ? `/${currentDomain.slug}` : '/')}
       accessToken={accessToken || undefined}
+      taskSnapshot={taskExecution.taskSnapshot}
     />
   );
 }

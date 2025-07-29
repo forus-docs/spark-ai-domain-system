@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/app/contexts/auth-context';
 import { useDomain } from '@/app/contexts/domain-context';
 import { DomainJoinModal } from '@/app/components/domain-join-modal';
-import HomeContent from '@/app/components/home-content';
+import TaskExecutions from '@/app/components/task-executions';
 
 export default function DomainHomePage() {
   const params = useParams();
@@ -46,7 +46,7 @@ export default function DomainHomePage() {
 
   // User has role - show home content
   if (hasRole) {
-    return <HomeContent />;
+    return <TaskExecutions />;
   }
 
   // Show join modal
