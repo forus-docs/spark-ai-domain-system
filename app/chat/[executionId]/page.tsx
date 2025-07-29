@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/app/contexts/auth-context';
 import { useDomain } from '@/app/contexts/domain-context';
-import { ChatInterfaceV2 } from '@/app/components/chat-interface-v2';
+import { ChatInterfaceWrapper } from '@/app/components/chat-interface-wrapper';
 import { TaskExecutionService } from '@/app/services/task-executions';
 
 interface PageProps {
@@ -80,14 +80,12 @@ export default function ChatPage({ params }: PageProps) {
   }
 
   return (
-    <ChatInterfaceV2
-      executionId={taskExecution.executionId}
-      masterTaskName={taskExecution.taskSnapshot?.title || taskExecution.title || 'Task Execution'}
-      executionModel={taskExecution.taskSnapshot?.executionModel || taskExecution.executionModel}
-      userTaskId={taskExecution.userTaskId}
-      onClose={() => router.push(currentDomain?.slug ? `/${currentDomain.slug}` : '/')}
-      accessToken={accessToken || undefined}
-      taskSnapshot={taskExecution.taskSnapshot}
-    />
+    <>
+      <ChatInterfaceWrapper
+        taskExecution={taskExecution}
+        executionId={params.executionId}
+        onClose={() => router.push(currentDomain?.slug ? `/${currentDomain.slug}` : '/')}
+      />
+    </>
   );
 }

@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/app/contexts/auth-context';
-import { ChatInterfaceV2 } from '@/app/components/chat-interface-v2';
 import { Loader2 } from 'lucide-react';
 
 interface PageProps {

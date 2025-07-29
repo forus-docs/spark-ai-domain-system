@@ -14,7 +14,7 @@ interface MarkdownProps {
 
 export function Markdown({ content, className, onDataExtract }: MarkdownProps) {
   return (
-    <div className={cn('prose prose-sm max-w-none', className)}>
+    <div className={cn('prose prose-sm max-w-none overflow-x-hidden text-sm', className)}>
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{

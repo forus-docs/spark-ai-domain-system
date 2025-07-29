@@ -33,7 +33,13 @@
   
   /* Basic code highlighting styles */
   .hljs {
-    @apply bg-gray-100 text-gray-800 p-4 rounded-md overflow-x-auto;
+    @apply bg-gray-100 text-gray-800 p-4 rounded-md;
+    overflow-x: hidden !important;
+    white-space: pre-wrap !important;
+    word-wrap: break-word !important;
+    word-break: break-word !important;
+    font-size: 0.625rem !important; /* 10px - absolute minimum */
+    line-height: 1.2 !important;
   }
   
   .hljs-keyword,
@@ -67,4 +73,45 @@
   .hljs-section {
     @apply text-purple-600 font-semibold;
   }
+}
+
+/* ChatScope Container Styling Only */
+
+/* Remove container padding */
+#__next .cs-main-container,
+#__next .cs-chat-container,
+#__next .cs-chat-container__content,
+#__next .cs-message-list,
+#__next .cs-message-list__scroll-wrapper {
+  padding: 0 !important;
+}
+
+#__next .cs-message-list__content {
+  padding: 0.5rem 0 !important;
+}
+
+/* Date separator */
+#__next .cs-message-separator {
+  font-size: 0.6875rem !important;
+  padding: 0.375rem 0 !important;
+  margin: 0.5rem 0 !important;
+  text-align: center !important;
+  color: #6b7280 !important;
+}
+
+/* Input area */
+#__next .cs-message-input {
+  font-size: 0.875rem !important;
+  padding: 0.5rem !important;
+}
+
+#__next .cs-message-input__content-editor {
+  min-height: 2.25rem !important;
+  max-height: 5rem !important;
+}
+
+/* Typing indicator */
+#__next .cs-typing-indicator {
+  font-size: 0.75rem !important;
+  margin-left: 2rem !important;
 }

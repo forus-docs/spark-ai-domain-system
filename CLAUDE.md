@@ -47,6 +47,9 @@ npx tsx scripts/[filename].ts  # Execute any script in scripts directory
 
 # Create QMS-compliant Read Memo task
 npx tsx scripts/create-read-memo-task.ts
+
+# VS Code Debug
+# Press F5 or use Run and Debug panel - configured for port 3001
 ```
 
 ## Architecture Overview
@@ -88,7 +91,7 @@ MESSAGING COLLECTIONS:
 - workstreamMessages   → Group chat messages (Socket.io)
 
 LEGACY COLLECTIONS (being phased out):
-- userTasks       → Merged into taskExecutions
+- userTasks       → Merged into taskExecutions (DO NOT USE)
 - workstreams     → Using taskExecutions with taskType: 'workstream'
 ```
 
@@ -185,16 +188,36 @@ user.identity.verificationType
   
   // Messages
   messages: ObjectId[]
+  
+  // Workstream support
+  // For workstreams: taskSnapshot.members contains array of users
 }
 ```
 
 **Domain Membership:**
 ```typescript
 user.domains: [{
-  domainId: string,     // Domain ID
-  role: string,         // User's role in domain  
+  domain: ObjectId,      // Reference to domain
+  domainId: ObjectId,    // Also check this field!
+  role: ObjectId,       // User's role in domain  
   joinedAt: Date
 }]
+```
+
+**ExecutionMessage Structure:**
+```typescript
+{
+  messageId: string
+  executionId: string
+  role: 'user' | 'assistant' | 'system' | 'tool'
+  content: string
+  content_parts?: Array<{
+    type: 'text' | 'image_url' | 'code' | 'file'
+    // Type-specific fields
+  }>
+  tokenCount?: number
+  // ... other fields
+}
 ```
 
 ## Environment Configuration
@@ -362,6 +385,48 @@ Response: { success: true, executionId: "..." }
 router.push(`/chat/${executionId}`)
 ```
 
+### Chat Interface Patterns
+
+#### "/" Command for Domain Tasks
+```typescript
+// Detect slash command in input
+if (input === '/') {
+  setShowDomainTasksDrawer(true);
+}
+
+// DomainTasksDrawer shows available tasks
+<DomainTasksDrawer 
+  isOpen={showDomainTasksDrawer}
+  onTaskSelect={handleTaskSelect}
+/>
+```
+
+#### Copy/Download Chat
+```typescript
+// Copy button in header
+const handleCopyChat = () => {
+  const chatText = messages.map(msg => 
+    `[${timestamp}] ${role}: ${content}`
+  ).join('\n\n');
+  navigator.clipboard.writeText(chatText);
+};
+
+// Download as markdown
+const handleDownloadChat = () => {
+  const blob = new Blob([chatMarkdown], { type: 'text/markdown' });
+  // ... download logic
+};
+```
+
+#### Task Snapshot Popup
+```typescript
+// Code icon shows task data
+<TaskSnapshotPopup 
+  taskSnapshot={taskExecution.taskSnapshot}
+  executionId={executionId}
+/>
+```
+
 ### TaskExecution Snapshot Pattern
 ```typescript
 // Wrong - complex transformations and field mapping
@@ -426,8 +491,11 @@ const hasAI = taskSnapshot?.aiAgentAttached !== false;
 ### Domain User Query Pattern
 
 ```typescript
-// Check membership
-const isMember = user.domains.some((d: any) => d.domainId === domainId);
+// Check membership - domains array has nested structure
+const isMember = user.domains.some((d: any) => 
+  d.domain?.toString() === domainId || 
+  d.domainId?.toString() === domainId  // Check both fields!
+);
 ```
 
 ## MongoDB MCP Tools
@@ -495,6 +563,10 @@ mcp__mongodb__find {
 - UserTask model removed - functionality merged into TaskExecution
 - Workstreams implemented using existing task infrastructure
 - Direct assignment flow: DomainTask → TaskExecution → Chat
+- Added "/" command in chat for domain task selection
+- Added copy/download chat functionality
+- Added task snapshot viewer (code icon)
+- Planning @chatscope/chat-ui-kit-react integration
 
 ## Form-js Integration
 - Installed `@bpmn-io/form-js` for form rendering and validation
@@ -517,11 +589,20 @@ mcp__mongodb__find {
 - Direct navigation to chat interface
 - No intermediate confirmation steps
 
-### Chat Interface
+### Chat Interface (`/chat/[executionId]`)
 - Uses TaskExecution snapshot data
 - Checks `taskSnapshot.aiAgentAttached` for AI features
 - Hides token count, cost, LLM provider for non-AI tasks
 - Conversational form rendering for form-based tasks
+- "/" command opens DomainTasksDrawer
+- Copy/download buttons in header
+- Code icon shows task snapshot
+
+### Upcoming: @chatscope Integration
+- Feature flags for safe rollout
+- WhatsApp-style attachment menu
+- Enhanced message components
+- See `CHATSCOPE_SPRINT_PLAN.md` for details
 
 ## Common Pitfalls to Avoid
 
@@ -531,3 +612,5 @@ mcp__mongodb__find {
 4. **DON'T** forget to check both domain fields in user.domains
 5. **DON'T** dynamically fetch from parent collections
 6. **DON'T** create UserTask - use TaskExecution directly
+7. **DON'T** forget null checks for currentDomain in components
+8. **DON'T** use complex transformations when storing snapshots - use `.toObject()`

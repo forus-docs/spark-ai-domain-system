@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useRef } from 'react';
-import { Paperclip } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { cn } from '@/app/lib/utils';
 
 interface FileUploadSimpleProps {
@@ -75,14 +75,14 @@ export function FileUploadSimple({
         onClick={() => fileInputRef.current?.click()}
         disabled={disabled}
         className={cn(
-          'p-2 rounded-md transition-colors',
+          'p-2.5 rounded-full transition-colors',
           disabled 
             ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
-            : 'hover:bg-gray-100 text-gray-600'
+            : 'bg-gray-100 hover:bg-gray-200 text-gray-600'
         )}
         title="Attach files"
       >
-        <Paperclip className="w-5 h-5" />
+        <Plus className="w-5 h-5" />
       </button>
       
       <input

@@ -19,10 +19,12 @@
     "migrate:sop": "tsx scripts/migrate-sop-structure.ts"
   },
   "dependencies": {
+    "@babel/runtime": "^7.28.2",
     "@chatscope/chat-ui-kit-react": "^2.1.1",
     "@chatscope/chat-ui-kit-styles": "^1.4.0",
     "@forus/ui": "file:../../packages/forus-ui",
     "@google/generative-ai": "^0.24.1",
+    "@microlink/react": "^5.5.23",
     "@types/bcryptjs": "^3.0.0",
     "@types/cookie-parser": "^1.4.9",
     "@types/express-session": "^1.18.2",

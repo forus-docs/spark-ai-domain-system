@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import './globals.css'
+import '@chatscope/chat-ui-kit-styles/dist/default/styles.min.css'
 import { AppLayout } from '@/app/components/app-layout'
 import { Providers } from '@/app/components/providers'
 

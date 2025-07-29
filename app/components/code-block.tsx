@@ -74,8 +74,8 @@ export function CodeBlock({ code, language = '', className, onExtractData }: Cod
         </button>
       </div>
 
-      <pre className="bg-gray-100 rounded-md p-4 overflow-x-auto">
-        <code className={`language-${language}`}>{code}</code>
+      <pre className="bg-gray-100 rounded-md p-4 overflow-x-hidden whitespace-pre-wrap break-words text-[0.625rem] leading-tight" style={{ maxWidth: '100%', wordBreak: 'break-word' }}>
+        <code className={`language-${language}`} style={{ display: 'block', whiteSpace: 'pre-wrap', wordWrap: 'break-word', fontSize: '0.625rem' }}>{code}</code>
       </pre>
 
       {extractError && (
