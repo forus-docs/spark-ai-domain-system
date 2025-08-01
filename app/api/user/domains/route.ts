@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyAccessToken } from '@/app/lib/auth/jwt';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/app/lib/auth-options';
 import { connectToDatabase } from '@/app/lib/database';
 import User from '@/app/models/User';
 import { TaskJourneyService } from '@/app/lib/services/task-journey.service';
@@ -9,24 +10,14 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: NextRequest) {
   await connectToDatabase();
 
-  // Check for authentication token
-  const authHeader = request.headers.get('authorization');
-  let userId = 'anonymous'; // Default fallback
+  // Get session from NextAuth
+  const session = await getServerSession(authOptions);
   
-  if (authHeader && authHeader.startsWith('Bearer ')) {
-    try {
-      const token = authHeader.substring(7);
-      const decoded = verifyAccessToken(token);
-      userId = decoded.id; // JWT payload has 'id' field
-    } catch (error) {
-      console.error('Invalid auth token:', error);
-      if (process.env.NODE_ENV !== 'development') {
-        return new Response('Invalid token', { status: 401 });
-      }
-    }
-  } else if (process.env.NODE_ENV !== 'development') {
-    return new Response('Unauthorized', { status: 401 });
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
+  
+  const userId = session.user.id;
 
   try {
     const user = await User.findById(userId);
@@ -65,27 +56,14 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   await connectToDatabase();
 
-  // Check for authentication token
-  const authHeader = request.headers.get('authorization');
-  let userId = 'anonymous'; // Default fallback
+  // Get session from NextAuth
+  const session = await getServerSession(authOptions);
   
-  if (authHeader && authHeader.startsWith('Bearer ')) {
-    try {
-      const token = authHeader.substring(7);
-      const decoded = verifyAccessToken(token);
-      userId = decoded.id; // JWT payload has 'id' field
-    } catch (error) {
-      console.error('Invalid auth token:', error);
-      // In development, allow fallback to anonymous
-      // In production, this would be a hard failure
-      if (process.env.NODE_ENV !== 'development') {
-        return new Response('Invalid token', { status: 401 });
-      }
-    }
-  } else if (process.env.NODE_ENV !== 'development') {
-    // Require auth in production
-    return new Response('Unauthorized', { status: 401 });
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
+  
+  const userId = session.user.id;
 
   const { domainId, roleId } = await request.json();
 
@@ -166,27 +144,14 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   await connectToDatabase();
 
-  // Check for authentication token
-  const authHeader = request.headers.get('authorization');
-  let userId = 'anonymous'; // Default fallback
+  // Get session from NextAuth
+  const session = await getServerSession(authOptions);
   
-  if (authHeader && authHeader.startsWith('Bearer ')) {
-    try {
-      const token = authHeader.substring(7);
-      const decoded = verifyAccessToken(token);
-      userId = decoded.id; // JWT payload has 'id' field
-    } catch (error) {
-      console.error('Invalid auth token:', error);
-      // In development, allow fallback to anonymous
-      // In production, this would be a hard failure
-      if (process.env.NODE_ENV !== 'development') {
-        return new Response('Invalid token', { status: 401 });
-      }
-    }
-  } else if (process.env.NODE_ENV !== 'development') {
-    // Require auth in production
-    return new Response('Unauthorized', { status: 401 });
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
+  
+  const userId = session.user.id;
 
   const { currentDomainId } = await request.json();
 

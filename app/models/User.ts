@@ -1,10 +1,9 @@
 import mongoose, { Document, Schema } from 'mongoose';
-import bcrypt from 'bcryptjs';
 
 export interface IUser extends Document {
   _id: string;
   email: string;
-  password: string;
+  keycloakId: string; // Maps to Keycloak 'sub' claim
   name: string;
   username: string;
   avatar?: string;
@@ -37,10 +36,9 @@ export interface IUser extends Document {
   identity: {
     isVerified: boolean;
     verifiedAt?: Date;
-    verificationType?: 'kyc' | 'email' | 'phone' | 'document';
+    verificationType?: 'kyc' | 'email' | 'phone' | 'document' | 'keycloak';
     verificationLevel?: 'basic' | 'standard' | 'enhanced';
   };
-  comparePassword(candidatePassword: string): Promise<boolean>;
 }
 
 const UserSchema = new Schema<IUser>({
@@ -51,9 +49,11 @@ const UserSchema = new Schema<IUser>({
     lowercase: true,
     trim: true,
   },
-  password: {
+  keycloakId: {
     type: String,
     required: true,
+    unique: true,
+    index: true,
   },
   name: {
     type: String,
@@ -98,7 +98,7 @@ const UserSchema = new Schema<IUser>({
     verifiedAt: Date,
     verificationType: {
       type: String,
-      enum: ['kyc', 'email', 'phone', 'document'],
+      enum: ['kyc', 'email', 'phone', 'document', 'keycloak'],
     },
     verificationLevel: {
       type: String,
@@ -115,31 +115,15 @@ UserSchema.index({ '_id': 1, 'domains.domainId': 1 }, { unique: true, name: 'idx
 UserSchema.index({ 'domains.domain': 1 }, { name: 'idx_user_domains' });
 UserSchema.index({ 'identity.isVerified': 1 }, { name: 'idx_verified' });
 
-// Hash password before saving
-UserSchema.pre('save', async function(next) {
-  if (!this.isModified('password')) return next();
-  
-  try {
-    const salt = await bcrypt.genSalt(10);
-    this.password = await bcrypt.hash(this.password, salt);
-    next();
-  } catch (error) {
-    next(error as Error);
-  }
-});
+// No password hashing needed with Keycloak authentication
 
-// Compare password method
-UserSchema.methods.comparePassword = async function(candidatePassword: string): Promise<boolean> {
-  return bcrypt.compare(candidatePassword, this.password);
-};
-
-// Remove password from JSON output
+// Remove sensitive data from JSON output
 UserSchema.methods.toJSON = function() {
   const user = this.toObject();
   // Convert _id to id for consistency with frontend expectations
   user.id = user._id.toString();
-  delete user.password;
-  delete user.apiKeys;
+  delete user.apiKeys; // Keep API keys private
+  delete user.keycloakId; // Internal mapping, not needed in frontend
   return user;
 };
 

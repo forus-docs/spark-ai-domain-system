@@ -24,6 +24,26 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
    - Treat explanations as educational, not action requests
    - If something seems broken, describe it and ask before fixing
 
+## Documentation Organization Rules
+
+**CRITICAL**: All documentation MUST be organized in the `/documentation` folder:
+
+```
+/documentation/
+  /architecture/    # System design, technical architecture
+  /planning/        # Sprint plans, feature planning
+  /reports/         # Analysis reports, audits
+  /guides/          # How-to guides, patterns
+  README.md         # Documentation index
+```
+
+**Rules:**
+1. **NO documentation in project root** (except README.md and CLAUDE.md)
+2. **Use appropriate subfolder** based on document type
+3. **File naming**: UPPERCASE_WITH_UNDERSCORES.md
+4. **Always update** `/documentation/README.md` when adding new docs
+5. **Cross-references**: Use relative paths between documents
+
 ## Development Commands
 
 ```bash
@@ -37,580 +57,581 @@ npm run typecheck    # TypeScript type checking
 # Database Setup
 mongod --dbpath ~/data/db --port 27017 &  # Start MongoDB if not running
 
-# Database Maintenance Scripts (in scripts/ directory)
-npx tsx scripts/optimize-indexes.ts      # Optimize database indexes
-npx tsx scripts/cleanup-old-indexes.ts   # Remove old index names
-npx tsx scripts/create-named-indexes.ts  # Create readable index names
-
-# Run any TypeScript script
-npx tsx scripts/[filename].ts  # Execute any script in scripts directory
-
-# Create QMS-compliant Read Memo task
-npx tsx scripts/create-read-memo-task.ts
-
 # VS Code Debug
 # Press F5 or use Run and Debug panel - configured for port 3001
+
+# Development Server
+# Note: npm run dev runs server-dev.js with WebSocket/Socket.IO support
+# Production: npm start runs server.js
 ```
 
-## Architecture Overview
+## PostgreSQL Configuration
 
-### Three-Tier Data Architecture (January 2025)
+**PostgreSQL** is running on port 5433 via Docker Compose for the Camunda integration.
+**Note**: Local PostgreSQL 17 installation runs on port 5432.
 
-**CRITICAL**: Data flows through THREE SEPARATE MongoDB collections:
+### PostgreSQL Database Credentials
+- **Host**: localhost or 127.0.0.1
+- **Port**: 5433
+- **Username**: postgres
+- **Password**: postgres
+- **Database**: camunda
+- **Container**: app-netbuild-postgres-1
 
-```
-masterTasks (collection) → domainTasks (collection) → taskExecutions (collection)
-     ↓                           ↓                            ↓
-  Templates                Domain copies              User assignments
-  (domain: "")            (domain: "id")             (with execution)
-```
+### Docker Management
+```bash
+# Start services
+docker-compose up -d
 
-**Key Points:**
-- **THREE SEPARATE COLLECTIONS** - Not a unified collection
-- Each level contains COMPLETE SNAPSHOT - no dynamic lookups
-- UserTask model removed - merged into TaskExecution
-- QMS compliance through immutable snapshots
+# View logs
+docker-compose logs -f postgres
+docker-compose logs -f camunda
+# Future: docker-compose logs -f keycloak
 
-### MongoDB Collections Map
+# Stop services
+docker-compose down
 
-```
-Database: spark-ai (port 27017)
-
-TASK COLLECTIONS:
-- masterTasks     → MasterTask templates (domain: "" or null)
-- domainTasks     → Domain-adopted tasks (separate collection!)
-- taskExecutions  → User assignments with execution state
-
-USER/DOMAIN COLLECTIONS:
-- users           → User accounts with nested identity
-- domains         → Domain configurations with invite codes
-- invites         → Domain invitation management
-
-MESSAGING COLLECTIONS:
-- executionMessages    → Chat messages within task executions
-- workstreamMessages   → Group chat messages (Socket.io)
-
-LEGACY COLLECTIONS (being phased out):
-- userTasks       → Merged into taskExecutions (DO NOT USE)
-- workstreams     → Using taskExecutions with taskType: 'workstream'
+# Remove everything (including volumes)
+docker-compose down -v
 ```
 
-### Core Services Architecture
+**Note**: Keycloak service will be added to docker-compose.yml for production use.
+
+### PostgreSQL MCP Configuration
+PostgreSQL MCP is configured in the project-local `.mcp.json` file.
+- Connects to PostgreSQL on port 5433 (Docker container)
+- Database: camunda
+- Credentials: postgres/postgres
+
+Use tools with prefix `mcp__postgres__` after restart.
+
+## High-Level Architecture
+
+### Three-Tier Data Flow (QMS-Compliant)
+
+NetBuild implements a strict three-tier architecture where data flows through complete snapshots:
 
 ```
-/app
-  /[domain]                     # Domain-scoped routes
-    /tasks                      # Task library and management
-    /page.tsx                   # Domain home or join modal
-    
-  /api                          # API Routes (Next.js 14 App Router)
-    /auth                       # JWT authentication endpoints
-    /domain-tasks               # Task management endpoints
-    /task-executions            # Execution session management
-    /chat/stream                # SSE streaming for AI chat
-    /domains/[domainId]/
-      /adopt-task               # Domain task adoption
-      /master-tasks/[id]        # Domain-scoped master task access
-  
-  /models                       # Mongoose schemas
-    MasterTask.ts               # Task templates
-    DomainTask.ts               # Domain-adopted tasks (separate collection)
-    TaskExecution.ts            # User executions with flexible taskSnapshot
-    ExecutionMessage.ts         # Chat messages within executions
-    User.ts                     # User accounts with nested identity
-    Domain.ts                   # Domain configurations
-    
-  /services                     # Business logic
-    task-executions.ts          # TaskExecutionService, ExecutionMessageService
-    domain-adoption.service.ts  # Domain task adoption logic
-    
-  /lib/services                 # Additional services
-    conversational-form.service.ts  # Form-js chat integration
-    
-  /lib/auth
-    jwt.ts                      # JWT token management
-    domain-access.ts            # Domain membership verification
-    
-  /contexts                     # React Context providers
-    auth-context.tsx            # JWT auth management
-    domain-context.tsx          # Domain selection state
-    chat-context.tsx            # Chat session management
-    file-context.tsx            # File upload handling
+┌─────────────────┐
+│  MASTER TASKS   │ ← "Master library of all task templates"
+│   (library of   │
+│  task templates │
+│   with SOPs)    │
+└────────┬────────┘
+         │ adopted by domain
+         ▼
+┌─────────────────┐
+│  DOMAIN TASKS   │ ← "Tasks this domain has adopted"
+│ (domain-specific│
+│  configurations)│
+└────────┬────────┘
+         │ assigned to user
+         ▼
+┌─────────────────┐
+│   USER TASKS    │ ← "Tasks assigned to specific users"
+│ (user's assigned│
+│     tasks)      │
+└────────┬────────┘
+         │ executed as
+         ▼
+┌─────────────────┐
+│ TASK EXECUTIONS │ ← "Active task execution sessions"
+│   (execution    │
+│    sessions)    │
+└─────────────────┘
 ```
 
-### Request Flow Architecture
+**Critical Points:**
+- Each tier is a **SEPARATE MongoDB collection** (not unified)
+- Complete snapshots stored at each level (no dynamic lookups)
+- Immutable data ensures QMS compliance and audit trails
+- UserTask model removed - functionality merged into TaskExecution
+- All new tasks must be marked with `isQMSCompliant: true`
 
-1. **Client Request** → Next.js App Router → API Route Handler
-2. **API Route** → JWT Verification → Domain Access Check → Service Layer
-3. **Service Layer** → Mongoose Models → MongoDB
-4. **Response** → Transform → Client
+### Authentication & Authorization
 
-### Authentication & Security
+**OAuth2/Keycloak Strategy (Current):**
+- Authentication via Keycloak SSO
+- NextAuth.js manages sessions (JWT removed completely)
+- Keycloak handles token refresh
+- Users auto-provisioned on first login
+- Domain membership verified via `verifyDomainAccess()`
+- SSO across all applications
+- Proper Camunda session context
 
-#### JWT Token Management
-- Access tokens: 15 minutes expiry
-- Refresh tokens: 7 days expiry (httpOnly cookie)
-- Token rotation on refresh
-- Access token stored in localStorage
+**Migration from JWT:**
+- All API routes now use `getServerSession(authOptions)` instead of JWT verification
+- No more `@/app/lib/auth/jwt` imports
+- Session-based authentication throughout
 
-#### Domain Access Control
-- All domain-specific resources require membership verification
-- Use `verifyDomainAccess()` from `/lib/auth/domain-access.ts`
-- Returns 403 Forbidden for unauthorized access
-- No information leakage about inaccessible resources
-
-### Critical Data Structures
-
-**User Identity (Nested Structure):**
+**Critical User Structure:**
 ```typescript
 user.identity.isVerified    // NOT user.isVerified
-user.identity.verifiedAt
-user.identity.verificationType
+user.domains[].domain       // Check both domain and domainId fields
+user.domains[].domainId     // Legacy field still in use
 ```
 
-**TaskExecution Structure:**
-```typescript
-{
-  // Identity
-  executionId: string
-  userId: ObjectId
-  domainId: ObjectId
-  domainTaskId: ObjectId
-  
-  // Complete task snapshot - stores DomainTask as-is
-  taskSnapshot: any  // Schema.Types.Mixed - accepts complete snapshot
-  
-  // Execution state
-  status: 'assigned' | 'in_progress' | 'completed' | 'failed'
-  assignedAt: Date
-  startedAt?: Date
-  completedAt?: Date
-  
-  // Messages
-  messages: ObjectId[]
-  
-  // Workstream support
-  // For workstreams: taskSnapshot.members contains array of users
-}
+### Request Flow Pattern
+
+```
+Client → Next.js App Router → JWT Verify → Domain Access Check → Service Layer → MongoDB
 ```
 
-**Domain Membership:**
-```typescript
-user.domains: [{
-  domain: ObjectId,      // Reference to domain
-  domainId: ObjectId,    // Also check this field!
-  role: ObjectId,       // User's role in domain  
-  joinedAt: Date
-}]
+All domain-scoped resources require membership verification. Returns 403 without leaking resource existence.
+
+### Development Server Architecture
+
+- **Development**: `npm run dev` runs `server-dev.js` with WebSocket/Socket.IO support
+- **Production**: `npm start` runs `server.js`
+- **WebSocket**: Socket.IO server runs on same port (3001) with CORS configured
+- **Real-time**: Supports both SSE (current) and WebSocket (future) communications
+
+### Dynamic Domain Routing
+
+The app uses Next.js dynamic routing with `[domain]` segments:
+
+```
+/app/[domain]/tasks/page.tsx     → Handles ALL domains dynamically
+/app/[domain]/page.tsx           → Domain home for ALL domains
 ```
 
-**ExecutionMessage Structure:**
-```typescript
-{
-  messageId: string
-  executionId: string
-  role: 'user' | 'assistant' | 'system' | 'tool'
-  content: string
-  content_parts?: Array<{
-    type: 'text' | 'image_url' | 'code' | 'file'
-    // Type-specific fields
-  }>
-  tokenCount?: number
-  // ... other fields
-}
+**How it works:**
+1. URL `/maven-hub/tasks` extracts "maven-hub" as domain slug
+2. `DomainProvider` validates the slug and sets current domain
+3. Page components fetch domain-specific data using context
+4. One component serves all domains - no static pages per domain
+
+**Key Points:**
+- Routes like `/[domain]/tasks` are fully dynamic
+- Domain filtering happens via API calls using `currentDomain.id`
+- Access control enforced by `DomainProvider`
+- Redirects to `/domains` if user lacks access (which then redirects to appropriate page)
+
+**Domain Navigation:**
+- `/explore-domains` - Browse and join new domains
+- `/domains` - Legacy redirect (sends to current domain or /explore-domains)
+- User menu - Quick domain switching for joined domains
+
+## Database Architecture
+
+**Database:** `netbuild` on port 27017
+
+### Core Collections
+
+| Collection | Purpose | Key Points |
+|------------|---------|------------|
+| `masterTasks` | Task templates | `domain: ""` or `null` for templates |
+| `domainTasks` | Domain-adopted tasks | Separate collection with complete snapshots |
+| `taskExecutions` | User assignments | Contains full `taskSnapshot` from DomainTask |
+| `executionMessages` | Chat messages | Linked to taskExecutions |
+| `users` | User accounts | Nested `identity` structure |
+| `domains` | Domain configs | Includes invite codes and roles |
+
+### Critical Implementation Rules
+
+1. **TaskExecution Snapshots**: Store complete DomainTask using `.toObject()` - no transformations
+2. **Domain Task Queries**: Use `DomainTask` model, NOT `MasterTask.find({ domain })`
+3. **User Verification**: Check `user.identity.isVerified` (nested structure)
+4. **Domain Membership**: Check both `domains[].domain` and `domains[].domainId`
+5. **No Dynamic Fetching**: TaskExecutions must never fetch from parent collections
+
+## Task Adoption & Assignment Flow
+
+### 1. Domain Adoption (Admin Only)
 ```
+POST /api/domains/[domainId]/adopt-task
+Body: { masterTaskId, customizations? }
+→ Creates DomainTask with complete MasterTask snapshot
+```
+
+### 2. User Assignment (Self-Service)
+```
+POST /api/domain-tasks/assign
+Body: { taskId }
+→ Creates TaskExecution with complete task snapshot
+→ Returns: { success: true, executionId: "..." }
+→ Navigate directly to /chat/{executionId}
+```
+
+### 3. Chat Execution
+```
+POST /api/chat/stream (SSE endpoint)
+Body: { messages, executionId, processName, executionModel }
+→ Uses TaskExecution snapshot data only
+→ Streams AI responses with token tracking
+```
+
+## AI Context Management
+
+System prompts are built from TaskExecution snapshots in this order:
+1. Base/custom prompt
+2. Standard Operating Procedure (if exists)
+3. Checklist items (if no SOP)
+4. Required parameters
+5. Introduction message
+6. Task context
+7. Domain customizations
+
+**Providers:** Gemini 1.5 Flash (default), GPT-4o-mini (fallback)
+
+## Common Patterns
+
+### Workstream Support
+- Uses `taskType: 'workstream_basic'` in DomainTask
+- Members stored in `taskSnapshot.members`
+- Check `aiAgentAttached` to show/hide AI UI elements
+
+### Chat Interface Features
+- "/" command opens DomainTasksDrawer
+- Copy/download buttons for chat export
+- Code icon shows task snapshot data
+
+### Error Handling
+- Consistent format: `{ error: string }`
+- Domain access returns 403 (no info leakage)
+- CastErrors usually mean incorrect snapshot storage
 
 ## Environment Configuration
 
-Required `.env.local` variables:
+Required `.env.local`:
 ```
-MONGODB_URI=mongodb://localhost:27017/spark-ai
-JWT_SECRET=<32+ character secret>
-JWT_REFRESH_SECRET=<32+ character secret>
-SESSION_SECRET=<32+ character secret>
-CREDS_KEY=<32 character encryption key>
-CREDS_IV=<16 character IV>
+# Database
+MONGODB_URI=mongodb://localhost:27017/netbuild
+
+# NextAuth/Keycloak
+NEXTAUTH_URL=http://localhost:3001
+NEXTAUTH_SECRET=<32+ chars>
+KEYCLOAK_URL=http://localhost:8081
+KEYCLOAK_REALM=netbuild
+KEYCLOAK_CLIENT_ID=netbuild-app
+KEYCLOAK_CLIENT_SECRET=<your-client-secret>
+KEYCLOAK_ISSUER=http://localhost:8081/realms/netbuild
+USE_KEYCLOAK=true
+NEXT_PUBLIC_USE_KEYCLOAK=true
+
+# Legacy (can be removed after full migration)
+SESSION_SECRET=<32+ chars>
+CREDS_KEY=<32 char encryption key>
+CREDS_IV=<16 char IV>
+
+# AI Providers
 OPENAI_API_KEY=<OpenAI API key>
 GEMINI_API_KEY=<Google Gemini API key>
 ```
 
-## MongoDB Collections
-
-Database: `spark-ai` on port 27017
-
-### Core Collections (Separate for QMS Compliance)
-- `users` - User accounts with nested identity structure
-- `domains` - Domain configurations with invite codes
-- `masterTasks` - Task templates only
-- `domainTasks` - Domain-adopted tasks with complete snapshots
-- `taskExecutions` - User executions with complete taskSnapshot
-- `executionMessages` - Chat messages within executions
-- `invites` - Domain invitation management
-
-### Index Naming Convention
-All indexes use readable names starting with `idx_`:
-- `idx_user_recent` - Recent items by user
-- `idx_domain_active` - Active items in domain
-- `idx_text_search` - Full-text search indexes
-See `/docs/database-indexes.md` for complete documentation.
-
-### Task Adoption Flow
-
-1. **MasterTask → DomainTask**
-   - API: `POST /api/domains/[domainId]/adopt-task`
-   - Source: `masterTasks` collection
-   - Destination: `domainTasks` collection (SEPARATE!)
-   - Creates complete snapshot with all MasterTask data
-
-2. **DomainTask → TaskExecution**
-   - API: `POST /api/domain-tasks/assign`
-   - Source: `domainTasks` collection  
-   - Destination: `taskExecutions` collection
-   - Creates TaskExecution with complete task snapshot
-   - User navigates directly to `/chat/{executionId}`
-
-## API Integration Points
-
-### Task Adoption (Domain Admin)
-```
-POST /api/domains/[domainId]/adopt-task
-Body: { masterTaskId, customizations? }
-Authorization: Bearer <token>
-```
-
-### Task Assignment (User Self-Service)
-```
-POST /api/domain-tasks/assign
-Body: { taskId }
-Authorization: Bearer <token>
-```
-- Creates TaskExecution directly
-- Returns: `{ success: true, executionId: string }`
-- Navigate to `/chat/{executionId}` immediately
-
-### Chat Streaming
-```
-POST /api/chat/stream
-Body: { 
-  messages: Message[],
-  processName: string,
-  executionModel: string,
-  executionId: string  // Required - no ad-hoc execution creation
-}
-Headers: { Authorization: Bearer <token> }
-Response: Server-Sent Events stream
-```
-
-### Get Available Tasks
-```
-GET /api/domain-tasks/master?domain={domainId}
-Authorization: Bearer <token>
-```
-- Returns available DomainTasks for assignment
-
-## AI Context Management
-
-### System Prompt Construction
-Built from TaskExecution snapshot in this order:
-1. Base system prompt or custom prompt
-2. Standard Operating Procedure (if exists)
-3. Checklist items (if no SOP)
-4. Required parameters with validation
-5. Introduction message
-6. Task context (title, description, type)
-7. Domain customizations
-
-### SSE Streaming Pattern
-```typescript
-// Client-side connection
-const eventSource = new SSE('/api/chat/stream', {
-  headers: { Authorization: `Bearer ${token}` },
-  payload: JSON.stringify({
-    messages,
-    processName,
-    executionModel,
-    executionId  // Required
-  })
-});
-
-// Server sends chunks
-res.write(`data: ${JSON.stringify({ chunk })}\n\n`);
-```
-
-### AI Provider Integration
-- Default: Gemini 1.5 Flash
-- Fallback: GPT-4o-mini
-- Token tracking per message
-- Automatic message persistence
-
-## State Management Patterns
-
-### User State Persistence
-1. **MongoDB**: Source of truth for user data
-2. **JWT Tokens**: Session management
-3. **localStorage**: `spark-user`, `spark-refresh-token`
-4. **React Context**: Runtime state management
-
-### Task State Flow
-1. **Domain Adoption**: Creates DomainTask entry with complete MasterTask snapshot
-2. **User Assignment**: Creates TaskExecution with complete task snapshot
-3. **Chat Execution**: Uses TaskExecution snapshot data directly
-
-### Domain Context
-- Current domain stored in `user.currentDomainId`
-- Domain switching updates user document
-- Most operations require active domain context
-- Domain-specific routing: `/{domain-slug}/...`
-
-## Critical Implementation Rules
-
-1. **No Dynamic Fetching**: TaskExecutions must NEVER fetch from MasterTask/DomainTask
-2. **Complete Snapshots**: Each level must copy ALL data needed for downstream
-3. **User Verification**: Always check `user.identity.isVerified` (nested structure)
-4. **Domain Access**: Check `domains.domainId` field
-5. **Use `.toObject()`**: Convert Mongoose documents before storing snapshots
-6. **Error Responses**: Use consistent format: `{ error: string }`
-7. **Direct Navigation**: After assignment, navigate directly to `/chat/{executionId}`
-8. **Separate Collections**: masterTasks, domainTasks, taskExecutions are SEPARATE
-
-## Common Patterns & Solutions
-
-### Task Assignment Flow
-```typescript
-// 1. User clicks unassigned task
-POST /api/domain-tasks/assign
-Response: { success: true, executionId: "..." }
-
-// 2. Navigate directly to chat
-router.push(`/chat/${executionId}`)
-```
-
-### Chat Interface Patterns
-
-#### "/" Command for Domain Tasks
-```typescript
-// Detect slash command in input
-if (input === '/') {
-  setShowDomainTasksDrawer(true);
-}
-
-// DomainTasksDrawer shows available tasks
-<DomainTasksDrawer 
-  isOpen={showDomainTasksDrawer}
-  onTaskSelect={handleTaskSelect}
-/>
-```
-
-#### Copy/Download Chat
-```typescript
-// Copy button in header
-const handleCopyChat = () => {
-  const chatText = messages.map(msg => 
-    `[${timestamp}] ${role}: ${content}`
-  ).join('\n\n');
-  navigator.clipboard.writeText(chatText);
-};
-
-// Download as markdown
-const handleDownloadChat = () => {
-  const blob = new Blob([chatMarkdown], { type: 'text/markdown' });
-  // ... download logic
-};
-```
-
-#### Task Snapshot Popup
-```typescript
-// Code icon shows task data
-<TaskSnapshotPopup 
-  taskSnapshot={taskExecution.taskSnapshot}
-  executionId={executionId}
-/>
-```
-
-### TaskExecution Snapshot Pattern
-```typescript
-// Wrong - complex transformations and field mapping
-taskSnapshot: {
-  title: domainTask.title,
-  procedures: domainTask.procedures.map(...),
-  // etc - causes CastErrors
-}
-
-// Correct - store complete snapshot as-is
-const domainTaskObj = domainTask.toObject();
-taskSnapshot: domainTaskObj
-```
-
-### Domain Access Pattern
-```typescript
-import { verifyDomainAccess, createUnauthorizedResponse } from '@/app/lib/auth/domain-access';
-
-// In API route
-const accessCheck = await verifyDomainAccess(request, domainId);
-if (!accessCheck.isValid) {
-  return createUnauthorizedResponse(accessCheck.error!, accessCheck.statusCode!);
-}
-```
-
-### Finding Tasks in Correct Collections
-
-```typescript
-// Find MasterTasks (templates)
-await MasterTask.find({ 
-  domain: { $in: ['', null] },
-  isActive: true 
-})
-
-// Find DomainTasks - USE DomainTask MODEL!
-await DomainTask.find({ 
-  domain: domainId,
-  isActive: true 
-})
-
-// Find TaskExecutions for user
-await TaskExecution.find({
-  userId: userId,
-  domainId: domainId,
-  status: { $ne: 'completed' }
-})
-```
-
-### Workstream Implementation
-
-Workstreams use existing collections:
-- DomainTask with `taskType: 'workstream_basic'`
-- TaskExecution with workstream members in taskSnapshot
-- ExecutionMessage for chat messages
-
-```typescript
-// Check if task has AI
-const hasAI = taskSnapshot?.aiAgentAttached !== false;
-// Hide AI UI elements (tokens, cost) if no AI attached
-```
-
-### Domain User Query Pattern
-
-```typescript
-// Check membership - domains array has nested structure
-const isMember = user.domains.some((d: any) => 
-  d.domain?.toString() === domainId || 
-  d.domainId?.toString() === domainId  // Check both fields!
-);
-```
-
 ## MongoDB MCP Tools
 
-Configure in `~/.claude/.mcp.json`:
-```json
-{
-  "mcpServers": {
-    "mongodb": {
-      "command": "mcp-server-mongodb",
-      "args": ["mongodb://localhost:27017/spark-ai"]
-    }
-  }
-}
+**IMPORTANT**: Project-local `.mcp.json` takes precedence over global `~/.claude/.mcp.json`
+
+The project includes `.mcp.json` with MongoDB, PostgreSQL, and Camunda configurations:
+- **MongoDB**: Points to `netbuild` database
+- **PostgreSQL**: Connects to port 5433 (Docker container)
+- **Camunda**: Connects to http://localhost:8080/engine-rest
+
+Use tools with prefix `mcp__mongodb__` (e.g., `mcp__mongodb__find`)
+
+## Common Debugging Queries
+
+```javascript
+// Check if DomainTask exists (correct collection!)
+mcp__mongodb__find({ 
+  database: "netbuild",
+  collection: "domainTasks",
+  filter: { domain: "domainId", taskType: "workstream_basic" } 
+})
+
+// Check user's domains (nested structure)
+mcp__mongodb__find({ 
+  database: "netbuild",
+  collection: "users",
+  filter: { _id: "userId" },
+  projection: { domains: 1 } 
+})
+
+// Verify TaskExecution has full snapshot
+mcp__mongodb__find({ 
+  database: "netbuild",
+  collection: "taskExecutions",
+  filter: { executionId: "..." },
+  projection: { taskSnapshot: 1 } 
+})
 ```
 
-Available tools (prefix: `mcp__mongodb__`):
-- `list-databases`, `list-collections`
-- `find`, `aggregate`, `count`
-- `collection-schema`, `collection-indexes`
+## Common Pitfalls
 
-## Debug & Development Tips
+1. **DON'T** query DomainTasks from masterTasks collection
+2. **DON'T** use complex transformations when storing snapshots
+3. **DON'T** forget both domain fields in user.domains array
+4. **DON'T** create UserTask documents (removed model)
+5. **DON'T** assume collections are unified when separate
 
-### Current Technical Debt
-- Excessive debug logging (remove before production)
-- Zero test coverage
-- Large components (chat-interface-v2.tsx: 1000+ lines)
+## Recent Changes (January 2025)
 
-### VS Code Debug Configuration
-- Port: 3001
-- Config: `.vscode/launch.json`
-- Full-stack debugging with breakpoints
+- Renamed from Spark AI to NetBuild
+- Three separate collections for task tiers
+- UserTask model removed (merged into TaskExecution)
+- Added "/" command for task selection in chat
+- Planning @chatscope/chat-ui-kit-react integration
+- PostgreSQL added for Camunda integration
+- WebSocket/Socket.IO support added to dev server
+- **BPM Domain**: Special domain for Camunda integration with separate sidebar
+- **Camunda Tasklist**: Basic integration implemented, full implementation planned
+- **Keycloak Integration**: Fully implemented OAuth2/OIDC authentication with NextAuth
+- **Filter Implementation**: Added filter-based task fetching (limited by auth constraints)
+- **JWT to NextAuth Migration**: Removed all JWT authentication in favor of NextAuth sessions
+- **Domain Navigation Refactor**: Separated domain switching (in user menu) from domain browsing (/explore-domains)
 
-### Common Debugging Queries
+## Camunda Integration (Active)
+
+NetBuild is transitioning to become a UI layer on top of Camunda 7:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                   NetBuild UI (Next.js 14)                       │
+│  Chat Interface • Domain Management • Real-time Updates          │
+├─────────────────────────────────────────────────────────────────┤
+│                      API Gateway Layer                           │
+│         Intelligent routing to appropriate Camunda service       │
+├─────────────────────────────────────────────────────────────────┤
+│     Camunda 7 Services          │        NetBuild Services      │
+│  • Process Engine               │   • WebSocket Server          │
+│  • User Management              │   • AI Integration            │
+│  • Task Management              │   • Chat Orchestration        │
+│  • BPMN Execution               │   • Event Bridge              │
+├─────────────────────────────────┴───────────────────────────────┤
+│                    PostgreSQL Database                           │
+│         Unified storage for all workflow and app data            │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Current Status (January 2025)
+- ✅ PostgreSQL running on port 5433 via Docker
+- ✅ Camunda 7.20.0 running on port 8080
+- ✅ Database initialized with 49 tables
+- ✅ Demo users and processes deployed
+- ✅ Both services healthy and connected
+
+### Access Points
+- **Camunda Web Apps**: http://localhost:8080
+  - Username: admin
+  - Password: admin
+- **Camunda REST API**: http://localhost:8080/engine-rest
+- **Container**: app-netbuild-camunda-1
+
+### Demo Users
+- demo/demo (has admin privileges)
+- john/john  
+- mary/mary
+- peter/peter
+
+**Important Demo Features:**
+1. **User Provisioning**: New users are provisioned by administrators - no self-registration
+2. **Easy User Switching**: Demo setup allows quick user switching for demonstrations
+3. **Non-Responsive UI**: The Camunda app is not mobile-responsive
+4. **NetBuild Integration**: These demo principles also apply to NetBuild for testing multi-user workflows
+5. **No Multi-Tenancy**: Demo runs at root level without tenant isolation - all processes and users share the same space
+
+See `/documentation/architecture/CAMUNDA_INTEGRATION_PLAN.md` for migration details.
+
+## Keycloak Integration (Implemented)
+
+### Why Keycloak is Required
+
+**CRITICAL**: Camunda filters with expressions like `${currentUser()}` and `${currentUserGroups()}` require authenticated sessions that HTTP Basic Auth cannot provide.
+
+**Current Limitation**: Our implementation uses HTTP Basic Auth which:
+- ❌ Cannot execute filters with dynamic expressions
+- ❌ Doesn't create server-side authentication context
+- ❌ Results in "Unable to invoke method 'taskAssignee'" errors
+
+**Keycloak Solution**: Provides OAuth2/OIDC authentication that:
+- ✅ Creates proper Camunda sessions
+- ✅ Enables filter expressions to work correctly
+- ✅ Provides Single Sign-On (SSO) across applications
+- ✅ Centralizes user and group management
+
+### Architecture with Keycloak
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                   NetBuild UI (Next.js 14)                       │
+│  Chat Interface • Domain Management • Real-time Updates          │
+├─────────────────────────────────────────────────────────────────┤
+│                      Keycloak Auth Layer                         │
+│      OAuth2/OIDC • Token Management • User Federation           │
+├─────────────────────────────────────────────────────────────────┤
+│                      API Gateway Layer                           │
+│    Token Validation • Session Creation • Context Propagation     │
+├─────────────────────────────────────────────────────────────────┤
+│     Camunda 7 Services          │        NetBuild Services      │
+│  • Process Engine               │   • WebSocket Server          │
+│  • Identity Service             │   • AI Integration            │
+│  • Task Management              │   • Chat Orchestration        │
+│  • BPMN Execution               │   • Event Bridge              │
+├─────────────────────────────────┴───────────────────────────────┤
+│                    PostgreSQL Database                           │
+│         Unified storage for all workflow and app data            │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Keycloak Configuration (Implemented)
+
+**Service Configuration:**
+- **Port**: 8081 (to avoid conflict with Camunda on 8080)
+- **Realm**: `netbuild`
+- **Client**: `netbuild-app` (OAuth2 confidential client)
+- **Integration**: NextAuth.js with Keycloak provider
+- **Self-Registration**: Enabled with auto-provisioning
+
+**User Provisioning:**
+- Users auto-created in MongoDB on first login
+- Profile synced from Keycloak (name, email, username)
+- Domain membership managed in NetBuild
+- Identity marked as verified via Keycloak
+
+### Authentication Flow with Keycloak
+
+1. **User Login**:
+   - User accesses NetBuild
+   - Redirected to Keycloak login
+   - Authenticates with username/password
+
+2. **Token Exchange**:
+   - Keycloak issues OAuth2 tokens
+   - NetBuild stores tokens securely
+   - Tokens included in API requests
+
+3. **Camunda Session**:
+   - Camunda validates OAuth token
+   - Creates authenticated session
+   - Sets identity context for expressions
+
+4. **Filter Execution**:
+   - `${currentUser()}` resolves correctly
+   - Group-based filters work
+   - All Camunda features available
+
+### Implementation Requirements
+
+**Docker Compose Addition:**
+```yaml
+keycloak:
+  image: quay.io/keycloak/keycloak:latest
+  environment:
+    - KEYCLOAK_ADMIN=admin
+    - KEYCLOAK_ADMIN_PASSWORD=admin
+    - KC_DB=postgres
+    - KC_DB_URL=jdbc:postgresql://postgres:5432/keycloak
+    - KC_DB_USERNAME=postgres
+    - KC_DB_PASSWORD=postgres
+  ports:
+    - "8081:8080"
+  depends_on:
+    - postgres
+```
+
+**Camunda Configuration:**
+- Install `camunda-bpm-identity-keycloak` plugin
+- Configure OAuth2 resource server
+- Map Keycloak claims to Camunda identity
+
+**NetBuild Updates:**
+- Add OAuth2 client library
+- Implement token refresh logic
+- Update API calls to use Bearer tokens
+- Add login/logout UI components
+
+### Migration Status
+
+1. **Phase 1**: ✅ Basic Auth kept for development
+2. **Phase 2**: ✅ Keycloak container added to Docker Compose
+3. **Phase 3**: ✅ Keycloak realm configured with self-registration
+4. **Phase 4**: ⏳ Camunda Keycloak plugin pending
+5. **Phase 5**: ✅ NetBuild migrated to OAuth2 authentication
+6. **Phase 6**: ✅ JWT deprecated, NextAuth implemented
+
+### BPM Domain Implementation
+NetBuild includes a special "bpm" domain that provides Camunda integration:
+
+**Features:**
+- **Separate Sidebar**: Orange-themed BPM sidebar with Camunda branding
+- **User Switching**: Quick switch between demo users (demo, john, mary, peter)
+- **Tasklist Integration**: Basic task list at `/[domain]/tasklist`
+- **API Proxy**: Routes through `/api/camunda/*` endpoints
+- **Dual Authentication**: NetBuild JWT + Camunda Basic Auth
+
+**Implementation Status:**
+- ✅ Basic task list with claim/unclaim
+- ✅ Task details panel
+- ✅ Simple form completion
+- ⏳ Advanced features planned (see `/documentation/planning/CAMUNDA_TASKLIST_FULL_IMPLEMENTATION_PLAN.md`)
+
+## Camunda MCP Configuration
+
+The Camunda MCP is implemented using FastMCP and located at `/Users/jacquesvandenberg/eos-forus/digital/mcp-camunda-fastmcp/`.
+
+### Available Camunda MCP Tools
+
+After restart, the following tools are available with prefix `mcp__camunda__`:
+
+**Process Definitions:**
+- `list_process_definitions` - List deployed process definitions
+- `count_process_definitions` - Count process definitions
+
+**Process Instances:**
+- `list_process_instances` - List process instances
+- `count_process_instances` - Count process instances
+- `start_process_instance` - Start a new process instance
+- `get_process_variables` - Get variables for a process instance
+
+**User Tasks:**
+- `list_user_tasks` - List user tasks
+- `count_user_tasks` - Count user tasks
+- `complete_user_task` - Complete a user task
+
+### Configuration
+Camunda MCP is configured in the project-local `.mcp.json` file.
+- Connects to Camunda REST API at http://localhost:8080/engine-rest/
+- Currently uses Basic Auth (limited functionality)
+- **Note**: Will require OAuth2 tokens when Keycloak is implemented
+- Implemented in Python using FastMCP framework
+- PYTHONPATH points to: /Users/jacquesvandenberg/eos-forus/digital/mcp-camunda-fastmcp
+
+## Data Migration Scripts
 
 ```bash
-# Check if DomainTask exists (correct collection!)
-mcp__mongodb__find { 
-  "database": "spark-ai",
-  "collection": "domainTasks",
-  "filter": { "domain": "domainId", "taskType": "workstream_basic" } 
-}
+# QMS Compliance
+npx tsx scripts/migrate-to-qms-compliant.js      # Create QMS-compliant tasks
+npx tsx scripts/cleanup-non-compliant-tasks.js   # Clean up after verification
 
-# Check user's domains (nested structure)
-mcp__mongodb__find { 
-  "database": "spark-ai",
-  "collection": "users",
-  "filter": { "_id": "userId" },
-  "projection": { "domains": 1 } 
-}
-
-# Verify TaskExecution has full snapshot
-mcp__mongodb__find { 
-  "database": "spark-ai",
-  "collection": "taskExecutions",
-  "filter": { "executionId": "..." },
-  "projection": { "taskSnapshot": 1 } 
-}
+# Database Maintenance
+npx tsx scripts/rename-collections.js            # Rename collections if needed
+npx tsx scripts/investigate-data-flow.js         # Investigate data flow
 ```
 
-## Recent Architecture Changes
+## QMS Compliance Checklist
 
-### January 2025 Updates
-- domainTasks is a SEPARATE collection, not part of masterTasks
-- UserTask model removed - functionality merged into TaskExecution
-- Workstreams implemented using existing task infrastructure
-- Direct assignment flow: DomainTask → TaskExecution → Chat
-- Added "/" command in chat for domain task selection
-- Added copy/download chat functionality
-- Added task snapshot viewer (code icon)
-- Planning @chatscope/chat-ui-kit-react integration
+When working with tasks, ensure:
+- [ ] DomainTasks have `masterTaskSnapshot` field
+- [ ] UserTasks have `executionData` in snapshot
+- [ ] TaskExecutions use ONLY snapshot data
+- [ ] No dynamic fetching from parent collections
+- [ ] All new tasks marked as `isQMSCompliant: true`
 
-## Form-js Integration
-- Installed `@bpmn-io/form-js` for form rendering and validation
-- Conversational UI for form completion with document extraction
-- Form schemas stored in `MasterTask.formSchema`
-- Custom `ConversationalFormService` for chat-based form filling
+## External Dependencies
 
-## UI Component Patterns
+- **@forus/ui**: Local UI component library (../../packages/forus-ui)
+- **@chatscope/chat-ui-kit-react**: Chat UI components
+- **AI Providers**: Requires GEMINI_API_KEY or OPENAI_API_KEY in environment
 
-### Tasks Page (`/[domain]/tasks`)
-- Full library view with MasterTask templates
-- Modal detail view for task information
-- Adopt button in footer for domain admins
-- Copy/download icons in header
-- Responsive card layout for domain tasks
+## Key Documentation
 
-### Task Assignment
-- Domain tasks shown in card view
-- Click to assign creates TaskExecution immediately
-- Direct navigation to chat interface
-- No intermediate confirmation steps
-
-### Chat Interface (`/chat/[executionId]`)
-- Uses TaskExecution snapshot data
-- Checks `taskSnapshot.aiAgentAttached` for AI features
-- Hides token count, cost, LLM provider for non-AI tasks
-- Conversational form rendering for form-based tasks
-- "/" command opens DomainTasksDrawer
-- Copy/download buttons in header
-- Code icon shows task snapshot
-
-### Upcoming: @chatscope Integration
-- Feature flags for safe rollout
-- WhatsApp-style attachment menu
-- Enhanced message components
-- See `CHATSCOPE_SPRINT_PLAN.md` for details
-
-## Common Pitfalls to Avoid
-
-1. **DON'T** look for DomainTasks in masterTasks collection
-2. **DON'T** use MasterTask model for domainTasks queries
-3. **DON'T** assume unified collection when docs mention it
-4. **DON'T** forget to check both domain fields in user.domains
-5. **DON'T** dynamically fetch from parent collections
-6. **DON'T** create UserTask - use TaskExecution directly
-7. **DON'T** forget null checks for currentDomain in components
-8. **DON'T** use complex transformations when storing snapshots - use `.toObject()`
+For detailed documentation, see the `/documentation` folder:
+- [Architecture Overview](./documentation/architecture/PROJECT_STRUCTURE_ANALYSIS.md)
+- [Codebase Index](./documentation/architecture/CODEBASE_INDEX.md)
+- [Navigation & Routing](./documentation/architecture/NAVIGATION_AND_ROUTING.md)
+- [Technical Debt Register](./documentation/reports/TECHNICAL_DEBT_REGISTER.md)
+- [Camunda Integration Plan](./documentation/architecture/CAMUNDA_INTEGRATION_PLAN.md)
+- [Camunda Tasklist Full Implementation](./documentation/planning/CAMUNDA_TASKLIST_FULL_IMPLEMENTATION_PLAN.md)
+- [NetBuild + Camunda Stack](./documentation/architecture/NETBUILD_CAMUNDA_STACK.md)
+- [Keycloak Integration Guide](./documentation/architecture/KEYCLOAK_INTEGRATION_GUIDE.md)

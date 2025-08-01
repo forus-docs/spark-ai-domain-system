@@ -430,7 +430,7 @@ export const mockRecentItems: Record<string, RecentItem[]> = {
   default: [
     {
       icon: '🌐',
-      title: 'Welcome to Spark AI',
+      title: 'Welcome to NetBuild',
       description: 'Explore domains to get started',
       timestamp: '1 hour ago',
       section: 'domains'

@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { cn } from '@/app/lib/utils';
-import { User, Settings, LogOut, ChevronUp, Building2 } from 'lucide-react';
+import { User, Settings, LogOut, ChevronUp, Building2, Globe } from 'lucide-react';
 import { useAuth } from '@/app/contexts/auth-context';
 import { useDomain } from '@/app/contexts/domain-context';
 import { useRouter } from 'next/navigation';
@@ -15,7 +15,7 @@ interface UserProfileProps {
 export function UserProfile({ onNavigate }: UserProfileProps = {}) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { user, logout } = useAuth();
-  const { currentDomain } = useDomain();
+  const { currentDomain, joinedDomains } = useDomain();
   const router = useRouter();
 
   if (!user) {
@@ -75,16 +75,46 @@ export function UserProfile({ onNavigate }: UserProfileProps = {}) {
             <Settings className="w-3 h-3" />
             Settings
           </button>
+          
+          {/* Domain list for quick switching */}
+          {joinedDomains && joinedDomains.length > 0 && (
+            <>
+              <hr className="my-0.5 border-gray-200" />
+              <div className="px-3 py-1.5 text-xs font-medium text-gray-500 uppercase">My Domains</div>
+              {joinedDomains.map((domain) => (
+                <button
+                  key={domain.id}
+                  onClick={() => {
+                    router.push(`/${domain.slug}`);
+                    setIsMenuOpen(false);
+                    onNavigate?.();
+                  }}
+                  className={cn(
+                    "w-full flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-gray-50 transition-colors",
+                    currentDomain?.id === domain.id ? "text-blue-600 bg-blue-50" : "text-gray-700"
+                  )}
+                >
+                  <Building2 className="w-3 h-3" />
+                  <span className="flex-1 text-left">{domain.name}</span>
+                  {currentDomain?.id === domain.id && (
+                    <span className="text-xs text-blue-600">Current</span>
+                  )}
+                </button>
+              ))}
+            </>
+          )}
+          
+          <hr className="my-0.5 border-gray-200" />
           <button 
             onClick={() => {
-              router.push('/domains');
+              router.push('/explore-domains');
               setIsMenuOpen(false);
               onNavigate?.();
             }}
             className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
           >
-            <Building2 className="w-3 h-3" />
-            Switch Domain
+            <Globe className="w-3 h-3" />
+            Explore New Domains
           </button>
           <hr className="my-0.5 border-gray-200" />
           <ClearStorageButton />

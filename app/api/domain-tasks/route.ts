@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyAccessToken } from '@/app/lib/auth/jwt';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/app/lib/auth-options';
 import { connectToDatabase } from '@/app/lib/database';
 import { TaskJourneyService } from '@/app/lib/services/task-journey.service';
 
@@ -11,23 +12,15 @@ export async function GET(request: NextRequest) {
     console.log('API /domain-tasks called');
     
     // Get token from Authorization header (case-insensitive)
-    const authHeader = request.headers.get('authorization');
-    
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const token = authHeader.split(' ')[1];
-    
-    let userId: string;
-    try {
-      const decoded = verifyAccessToken(token);
-      userId = decoded.id;
-      console.log('Verified user ID:', userId);
-    } catch (error) {
-      console.error('Token verification failed:', error);
-      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
-    }
+    // Get session from NextAuth
+  const session = await getServerSession(authOptions);
+  
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+  
+  const userId = session.user.id;
+  console.log('Verified user ID:', userId);
 
     // Get query parameters
     const { searchParams } = new URL(request.url);

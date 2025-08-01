@@ -54,7 +54,13 @@ export default function DomainHomePage() {
     <DomainJoinModal
       domain={domain}
       isOpen={true}
-      onClose={() => router.push('/domains')}
+      onClose={() => {
+        // After joining, the user will have a role and this component will re-render
+        // Only navigate away if they still don't have a role (e.g., they cancelled)
+        if (!getUserRole(domain.id)) {
+          router.push('/domains');
+        }
+      }}
     />
   );
 }

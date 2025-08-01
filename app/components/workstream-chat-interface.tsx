@@ -31,6 +31,8 @@ import { SopPopup } from './sop-popup';
 import { TaskSnapshotPopup } from './task-snapshot-popup';
 import { Copy, Download, Info, CheckSquare, Code, X, ArrowDown, Plus, Bot, BotOff } from 'lucide-react';
 import { DomainTasksDrawer } from './domain-tasks-drawer';
+import { TaskCommandPopup } from './task-command-popup';
+import { TaskCreationStubModal } from './task-creation-stub-modal';
 import { AttachmentMenu, AttachmentType } from './attachment-menu';
 import { format } from 'date-fns';
 
@@ -67,6 +69,9 @@ export function WorkstreamChatInterface({
   const [showSOPPopup, setShowSOPPopup] = useState(false);
   const [showTaskSnapshot, setShowTaskSnapshot] = useState(false);
   const [showDomainTasksDrawer, setShowDomainTasksDrawer] = useState(false);
+  const [showTaskCommandPopup, setShowTaskCommandPopup] = useState(false);
+  const [showTaskCreationModal, setShowTaskCreationModal] = useState(false);
+  const [taskCreationModalType, setTaskCreationModalType] = useState<'create' | 'request'>('create');
   const [totalTokenCount, setTotalTokenCount] = useState(0);
   const [estimatedCost, setEstimatedCost] = useState(0);
   const [currentModel, setCurrentModel] = useState<'openai' | 'google'>('google');
@@ -172,8 +177,26 @@ export function WorkstreamChatInterface({
   const handleInputChange = (value: string) => {
     setInput(value);
     if (value === '/' && value.length === 1) {
-      setShowDomainTasksDrawer(true);
+      setShowTaskCommandPopup(true);
     }
+  };
+
+  // Handle task command popup actions
+  const handleSelectExistingTask = () => {
+    setShowDomainTasksDrawer(true);
+    setInput(''); // Clear the "/" from input
+  };
+
+  const handleCreateNewTask = () => {
+    setTaskCreationModalType('create');
+    setShowTaskCreationModal(true);
+    setInput(''); // Clear the "/" from input
+  };
+
+  const handleRequestFromLibrary = () => {
+    setTaskCreationModalType('request');
+    setShowTaskCreationModal(true);
+    setInput(''); // Clear the "/" from input
   };
 
   // Handle file selection
@@ -705,12 +728,6 @@ export function WorkstreamChatInterface({
                 autoFocus
                 sendOnReturnDisabled={false}
               />
-              {/* Slash command hint */}
-              {input === '/' && (
-                <div className="absolute bottom-full left-0 mb-1 text-xs text-gray-500 bg-white px-2 py-1 rounded shadow-sm border border-gray-200">
-                  Type &quot;/&quot; to select a task
-                </div>
-              )}
             </div>
             
           </div>
@@ -753,6 +770,26 @@ export function WorkstreamChatInterface({
             setInput(`/${task.title}`);
             setShowDomainTasksDrawer(false);
           }}
+        />
+      )}
+      
+      {/* Task command popup */}
+      {showTaskCommandPopup && (
+        <TaskCommandPopup
+          isOpen={showTaskCommandPopup}
+          onClose={() => setShowTaskCommandPopup(false)}
+          onSelectExistingTask={handleSelectExistingTask}
+          onCreateNewTask={handleCreateNewTask}
+          onRequestFromLibrary={handleRequestFromLibrary}
+        />
+      )}
+      
+      {/* Task creation stub modal */}
+      {showTaskCreationModal && (
+        <TaskCreationStubModal
+          isOpen={showTaskCreationModal}
+          onClose={() => setShowTaskCreationModal(false)}
+          type={taskCreationModalType}
         />
       )}
       

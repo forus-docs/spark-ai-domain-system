@@ -16,7 +16,7 @@ export function SparkAppBar({ onMenuClick, onPlusClick }: SparkAppBarProps) {
   if (currentDomain) {
     return (
       <div className={cn(
-        "sticky top-0 z-30",
+        "fixed md:sticky top-0 left-0 right-0 z-30",
         "bg-gradient-to-r",
         currentDomain.gradient
       )}>
@@ -48,7 +48,7 @@ export function SparkAppBar({ onMenuClick, onPlusClick }: SparkAppBarProps) {
 
   // No domain selected - show simple bar
   return (
-    <div className="sticky top-0 z-30 bg-white border-b border-gray-200">
+    <div className="fixed md:sticky top-0 left-0 right-0 z-30 bg-white border-b border-gray-200">
       <div className="flex items-center justify-between h-14 px-3">
         {/* Left side - Plus button and Title */}
         <div className="flex items-center gap-3 flex-1">
@@ -59,7 +59,7 @@ export function SparkAppBar({ onMenuClick, onPlusClick }: SparkAppBarProps) {
           >
             <Plus className="w-5 h-5" />
           </button>
-          <h2 className="text-base font-semibold text-gray-900">Spark AI</h2>
+          <h2 className="text-base font-semibold text-gray-900">NetBuild</h2>
         </div>
 
         {/* Right Menu Button */}

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyAccessToken } from '@/app/lib/auth/jwt';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/app/lib/auth-options';
 import User from '@/app/models/User';
 import { connectToDatabase } from '@/app/lib/database';
 import { WorkstreamService } from '@/app/services/workstream.service';
@@ -8,15 +9,11 @@ import { WorkstreamService } from '@/app/services/workstream.service';
 export async function GET(request: NextRequest) {
   try {
     // Verify authentication
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
+    // Get session from NextAuth
+    const session = await getServerSession(authOptions);
+    
+    if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const token = authHeader.substring(7);
-    const payload = verifyAccessToken(token);
-    if (!payload) {
-      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
     }
 
     await connectToDatabase();
@@ -30,7 +27,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Get user's workstreams
-    const workstreams = await WorkstreamService.getUserWorkstreams(payload.id, domainId);
+    const workstreams = await WorkstreamService.getUserWorkstreams(session.user.id, domainId);
 
     // Transform the response to include member details
     const transformedWorkstreams = workstreams.map(ws => ({
@@ -56,15 +53,11 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     // Verify authentication
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
+    // Get session from NextAuth
+    const session = await getServerSession(authOptions);
+    
+    if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const token = authHeader.substring(7);
-    const payload = verifyAccessToken(token);
-    if (!payload) {
-      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
     }
 
     const body = await request.json();
@@ -80,12 +73,12 @@ export async function POST(request: NextRequest) {
     await connectToDatabase();
 
     console.log('POST /api/workstreams - Request body:', body);
-    console.log('User ID from token:', payload.id);
+    console.log('User ID from token:', session.user.id);
 
     // Verify user is member of domain
-    const user = await User.findById(payload.id);
+    const user = await User.findById(session.user.id);
     if (!user) {
-      console.error('User not found with ID:', payload.id);
+      console.error('User not found with ID:', session.user.id);
       return NextResponse.json({ error: 'User not found' }, { status: 401 });
     }
 
@@ -107,7 +100,7 @@ export async function POST(request: NextRequest) {
       domainId,
       name,
       description,
-      createdBy: payload.id,
+      createdBy: session.user.id,
       members: memberIds || []
     });
 
@@ -116,7 +109,7 @@ export async function POST(request: NextRequest) {
       domainId,
       name,
       description,
-      createdBy: payload.id,
+      createdBy: session.user.id,
       members: memberIds || []
     });
 

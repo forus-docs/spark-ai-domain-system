@@ -1,5 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { verifyAccessToken } from '@/app/lib/auth/jwt';
+import { NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/app/lib/auth-options';
 import { connectToDatabase } from '@/app/lib/database';
 import User from '@/app/models/User';
 
@@ -14,14 +15,13 @@ export interface DomainAccessCheck {
  * Verify that a user has access to a specific domain
  */
 export async function verifyDomainAccess(
-  request: NextRequest,
   domainId: string
 ): Promise<DomainAccessCheck> {
   try {
-    // Get token from Authorization header
-    const authHeader = request.headers.get('authorization');
+    // Get session from NextAuth
+    const session = await getServerSession(authOptions);
     
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    if (!session?.user?.id) {
       return {
         isValid: false,
         error: 'No authorization token provided',
@@ -29,19 +29,7 @@ export async function verifyDomainAccess(
       };
     }
 
-    const token = authHeader.split(' ')[1];
-    
-    let userId: string;
-    try {
-      const decoded = verifyAccessToken(token);
-      userId = decoded.id;
-    } catch (error) {
-      return {
-        isValid: false,
-        error: 'Invalid or expired token',
-        statusCode: 401
-      };
-    }
+    const userId = session.user.id;
 
     // Connect to database
     await connectToDatabase();

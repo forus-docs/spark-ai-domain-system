@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyAccessToken } from '@/app/lib/auth/jwt';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/app/lib/auth-options';
 import { connectToDatabase } from '@/app/lib/database';
 import MasterTask from '@/app/models/MasterTask';
 
@@ -7,6 +8,13 @@ export async function GET(
   request: NextRequest,
   { params }: { params: { masterTaskId: string } }
 ) {
+  // Get session from NextAuth
+  const session = await getServerSession(authOptions);
+  
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
     // Connect to database
     await connectToDatabase();
@@ -22,7 +30,7 @@ export async function GET(
 
     let userId: string;
     try {
-      const decoded = await verifyAccessToken(token);
+      const decoded = await session.user;
       userId = decoded.id;
     } catch (error) {
       return NextResponse.json(

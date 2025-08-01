@@ -2,30 +2,35 @@
 
 export const dynamic = 'force-dynamic';
 
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useDomain } from '@/app/contexts/domain-context';
-import { DomainGrid } from '@/app/components/domain-grid';
 
-export default function DomainsPage() {
-  const { isLoading: isDomainLoading } = useDomain();
+export default function DomainsRedirectPage() {
+  const router = useRouter();
+  const { currentDomain, isLoading } = useDomain();
 
+  useEffect(() => {
+    // This page exists only for backward compatibility
+    // Redirect to the appropriate page based on context
+    if (!isLoading) {
+      if (currentDomain?.slug) {
+        // User has a current domain - go there
+        router.replace(`/${currentDomain.slug}`);
+      } else {
+        // No current domain - go to explore domains
+        router.replace('/explore-domains');
+      }
+    }
+  }, [currentDomain, isLoading, router]);
 
-  // Show loading state while checking domain status
-  if (isDomainLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-gray-500">Loading...</div>
-      </div>
-    );
-  }
-
+  // Show loading state while redirecting
   return (
-    <div className="p-3">
-      <div className="mb-4">
-        <h1 className="text-xl font-light text-gray-900">Network Domains</h1>
-        <p className="text-xs text-gray-600 mt-1">Join existing networks or create your own domain to unite your industry</p>
+    <div className="flex items-center justify-center min-h-screen">
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto mb-4"></div>
+        <p className="text-gray-600">Redirecting...</p>
       </div>
-
-      <DomainGrid />
     </div>
   );
 }

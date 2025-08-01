@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyAccessToken } from '@/app/lib/auth/jwt';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/app/lib/auth-options';
 import { connectToDatabase } from '@/app/lib/database';
 import TaskExecution from '@/app/models/TaskExecution';
 import MasterTask from '@/app/models/MasterTask';
@@ -12,22 +13,14 @@ export async function GET(request: NextRequest) {
     await connectToDatabase();
     
     // Get token from Authorization header
-    const authHeader = request.headers.get('authorization');
+    // Get session from NextAuth
+    const session = await getServerSession(authOptions);
     
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-
-    const token = authHeader.split(' ')[1];
     
-    let userId: string;
-    try {
-      const decoded = verifyAccessToken(token);
-      userId = decoded.id;
-    } catch (error) {
-      console.error('Token verification failed:', error);
-      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
-    }
+    const userId = session.user.id;
 
     // Get domain from query params
     const searchParams = request.nextUrl.searchParams;

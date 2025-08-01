@@ -32,7 +32,7 @@ export function DomainGrid() {
     <>
       <div className="grid gap-3 grid-cols-1">
         {domains.map((domain) => {
-          const isJoined = joinedDomains.some(m => m.domain.id === domain.id);
+          const isJoined = joinedDomains.some(m => m.id === domain.id);
           
           return (
             <DomainCard

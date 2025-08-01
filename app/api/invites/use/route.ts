@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/app/lib/database';
-import { verifyAccessToken } from '@/app/lib/auth/jwt';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/app/lib/auth-options';
 import Invite from '@/app/models/Invite';
 
 export const dynamic = 'force-dynamic';
@@ -11,6 +12,13 @@ export const dynamic = 'force-dynamic';
  * Requires authentication
  */
 export async function POST(request: NextRequest) {
+  // Get session from NextAuth
+  const session = await getServerSession(authOptions);
+  
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
     // Verify JWT token
     const authHeader = request.headers.get('authorization');
@@ -22,7 +30,7 @@ export async function POST(request: NextRequest) {
     }
 
     const token = authHeader.split(' ')[1];
-    const decoded = verifyAccessToken(token);
+    const decoded = session.user;
     if (!decoded) {
       return NextResponse.json(
         { error: 'Invalid token' },

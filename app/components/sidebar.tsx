@@ -82,7 +82,7 @@ export function Sidebar({ onClose }: SidebarProps = {}) {
             className="w-8 h-8"
           />
           <h1 className="text-lg font-medium text-gray-900">
-            FOR<span className="font-black">US</span> Spark AI
+            FOR<span className="font-black">US</span> NetBuild
           </h1>
         </div>
       </div>

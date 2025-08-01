@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyAccessToken } from '@/app/lib/auth/jwt';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/app/lib/auth-options';
 import ExecutionMessage from '@/app/models/ExecutionMessage';
 import { connectToDatabase } from '@/app/lib/database';
 import { WorkstreamService } from '@/app/services/workstream.service';
@@ -15,22 +16,18 @@ interface RouteParams {
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     // Verify authentication
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
+    // Get session from NextAuth
+    const session = await getServerSession(authOptions);
+    
+    if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const token = authHeader.substring(7);
-    const payload = verifyAccessToken(token);
-    if (!payload) {
-      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
     }
 
     const { workstreamId } = params;
     await connectToDatabase();
 
     // Verify user is member of workstream
-    const isMember = await WorkstreamService.isMember(workstreamId, payload.id);
+    const isMember = await WorkstreamService.isMember(workstreamId, session.user.id);
     if (!isMember) {
       return NextResponse.json(
         { error: 'You are not a member of this workstream' },
@@ -60,15 +57,11 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
     // Verify authentication
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
+    // Get session from NextAuth
+    const session = await getServerSession(authOptions);
+    
+    if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const token = authHeader.substring(7);
-    const payload = verifyAccessToken(token);
-    if (!payload) {
-      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
     }
 
     const { workstreamId } = params;
@@ -85,7 +78,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     await connectToDatabase();
 
     // Verify user is member of workstream
-    const isMember = await WorkstreamService.isMember(workstreamId, payload.id);
+    const isMember = await WorkstreamService.isMember(workstreamId, session.user.id);
     if (!isMember) {
       return NextResponse.json(
         { error: 'You are not a member of this workstream' },
@@ -100,7 +93,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       role: 'user',
       content,
       text: content,
-      userId: payload.id,
+      userId: session.user.id,
       isCreatedByUser: true
     });
 

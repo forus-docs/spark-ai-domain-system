@@ -1,11 +1,11 @@
-# Spark AI Domain System
+# NetBuild
 
 ## Overview
-The Spark AI Domain System is a QMS-compliant, multi-role, multi-domain enterprise platform that enables users to join industry-specific ecosystems (domains), select roles, and access domain-specific features with AI-assisted task execution through immutable data snapshots.
+NetBuild is a QMS-compliant, multi-role, multi-domain enterprise platform that enables users to join industry-specific ecosystems (domains), select roles, and access domain-specific features with AI-assisted task execution through immutable data snapshots.
 
 ## Current Status (January 2025)
 - **QMS-compliant architecture** with immutable snapshot system
-- **Production-ready** authentication system with JWT tokens
+- **Production-ready** authentication system with Keycloak SSO
 - **MongoDB** database integration for all data storage
 - **Real-time chat** with Server-Sent Events (SSE)
 - **Task Journey system** for personalized user experiences
@@ -88,7 +88,7 @@ Data flows through complete, immutable snapshots ensuring consistency and audit 
 - **State Management**: React Context API
 - **Language**: TypeScript
 - **Database**: MongoDB with Mongoose
-- **Authentication**: JWT-based auth
+- **Authentication**: Keycloak SSO with NextAuth.js
 - **Real-time**: Server-Sent Events (SSE)
 
 ### Key Systems
@@ -174,7 +174,7 @@ taskExecutions → executionMessages
 ### MongoDB MCP Server
 Direct database access through natural language:
 - Configuration: `~/.claude/.mcp.json`
-- Connection: `mongodb://localhost:27017/spark-ai`
+- Connection: `mongodb://localhost:27017/netbuild`
 - Tools prefix: `mcp__mongodb__`
 
 ### VS Code Debug

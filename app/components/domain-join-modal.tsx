@@ -69,25 +69,30 @@ export function DomainJoinModal({ domain, isOpen, onClose }: DomainJoinModalProp
     
     setIsProcessing(true);
     
-    // Always call joinDomain to either join new or update role
-    await joinDomain(domain, selectedRole);
-    setCurrentDomain(domain);
-    
-    setIsProcessing(false);
-    
-    // Check if we need to navigate
-    const currentPath = window.location.pathname;
-    const targetPath = `/${domain.slug}`;
-    
-    // Close modal first
-    onClose();
-    
-    // Only navigate if we're not already on the target page
-    if (!currentPath.startsWith(targetPath)) {
-      // Small delay to ensure state updates before navigation
-      setTimeout(() => {
-        router.push(targetPath);
-      }, 100);
+    try {
+      // Always call joinDomain to either join new or update role
+      await joinDomain(domain, selectedRole);
+      await setCurrentDomain(domain);
+      
+      console.log('[DomainJoinModal] Join complete:', {
+        domain: domain.name,
+        slug: domain.slug,
+        role: selectedRole.name
+      });
+      
+      // Close modal first
+      onClose();
+      
+      // Navigate to the domain page
+      const targetPath = `/${domain.slug}`;
+      console.log('[DomainJoinModal] Navigating to:', targetPath);
+      
+      // Use router.push directly without delay
+      router.push(targetPath);
+    } catch (error) {
+      console.error('[DomainJoinModal] Error joining domain:', error);
+    } finally {
+      setIsProcessing(false);
     }
   };
 

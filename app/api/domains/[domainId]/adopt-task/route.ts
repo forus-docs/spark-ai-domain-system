@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyAccessToken } from '@/app/lib/auth/jwt';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/app/lib/auth-options';
 import { connectToDatabase } from '@/app/lib/database';
 import User from '@/app/models/User';
 import { DomainAdoptionService } from '@/app/services/domain-adoption.service';
@@ -17,18 +18,18 @@ interface RouteContext {
  * Returns available MasterTasks that can be adopted by this domain
  */
 export async function GET(request: NextRequest, context: RouteContext) {
-  await connectToDatabase();
-
-  // Check for authentication token
-  const authHeader = request.headers.get('authorization');
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
   try {
-    const token = authHeader.substring(7);
-    const decoded = verifyAccessToken(token);
-    const userId = decoded.id;
+    await connectToDatabase();
+
+    // Check for authentication token
+    // Get session from NextAuth
+    const session = await getServerSession(authOptions);
+    
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    
+    const userId = session.user.id;
 
     const { domainId } = context.params;
 
@@ -68,18 +69,18 @@ export async function GET(request: NextRequest, context: RouteContext) {
  * Adopts a MasterTask into a domain using the unified schema
  */
 export async function POST(request: NextRequest, context: RouteContext) {
-  await connectToDatabase();
-
-  // Check for authentication token
-  const authHeader = request.headers.get('authorization');
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
   try {
-    const token = authHeader.substring(7);
-    const decoded = verifyAccessToken(token);
-    const userId = decoded.id;
+    await connectToDatabase();
+
+    // Check for authentication token
+    // Get session from NextAuth
+    const session = await getServerSession(authOptions);
+    
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    
+    const userId = session.user.id;
 
     const { domainId } = context.params;
     const { masterTaskId, customizations } = await request.json();

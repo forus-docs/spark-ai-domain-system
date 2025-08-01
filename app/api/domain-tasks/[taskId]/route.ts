@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyAccessToken } from '@/app/lib/auth/jwt';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/app/lib/auth-options';
 import { TaskJourneyService } from '@/app/lib/services/task-journey.service';
 import { connectToDatabase } from '@/app/lib/database';
 
@@ -14,14 +15,14 @@ export async function GET(
     await connectToDatabase();
     
     // Get token from Authorization header (case-insensitive)
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const token = authHeader.split(' ')[1];
-    const decoded = verifyAccessToken(token);
-    const userId = decoded.id;
+    // Get session from NextAuth
+  const session = await getServerSession(authOptions);
+  
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+  
+  const userId = session.user.id;
 
     // Mark as viewed
     await TaskJourneyService.markTaskViewed(userId, params.taskId);
@@ -45,14 +46,14 @@ export async function PUT(
     await connectToDatabase();
     
     // Get token from Authorization header (case-insensitive)
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const token = authHeader.split(' ')[1];
-    const decoded = verifyAccessToken(token);
-    const userId = decoded.id;
+    // Get session from NextAuth
+  const session = await getServerSession(authOptions);
+  
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+  
+  const userId = session.user.id;
 
     const body = await request.json();
     const { action } = body;

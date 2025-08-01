@@ -5,7 +5,7 @@ import { AppLayout } from '@/app/components/app-layout'
 import { Providers } from '@/app/components/providers'
 
 export const metadata: Metadata = {
-  title: 'Spark AI Domain System',
+  title: 'NetBuild',
   description: 'Multi-role, multi-domain enterprise platform',
 }
 

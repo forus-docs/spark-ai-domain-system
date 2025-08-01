@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { writeFile, mkdir } from 'fs/promises';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
-import { verifyAccessToken } from '@/app/lib/auth/jwt';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/app/lib/auth-options';
 import { 
   validateFiles, 
   isValidFileType, 
@@ -27,6 +28,13 @@ interface FileUploadResponse {
 }
 
 export async function POST(request: NextRequest) {
+  // Get session from NextAuth
+  const session = await getServerSession(authOptions);
+  
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
     // Verify authentication
     const token = request.headers.get('authorization')?.replace('Bearer ', '');
@@ -39,7 +47,7 @@ export async function POST(request: NextRequest) {
 
     let userId: string;
     try {
-      const decoded = await verifyAccessToken(token);
+      const decoded = await session.user;
       userId = decoded.id;
     } catch (error) {
       return NextResponse.json(

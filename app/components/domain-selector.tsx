@@ -12,7 +12,7 @@ interface DomainSelectorProps {
 export function DomainSelector({ onSelect }: DomainSelectorProps = {}) {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const { currentDomain, joinedDomains, setCurrentDomain } = useDomain();
+  const { currentDomain, joinedDomains, setCurrentDomain, getUserRole } = useDomain();
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -66,14 +66,15 @@ export function DomainSelector({ onSelect }: DomainSelectorProps = {}) {
           "bg-white rounded-md shadow-lg border border-gray-200",
           "py-1 max-h-60 overflow-y-auto overflow-x-hidden"
         )}>
-          {joinedDomains.map((membership) => {
-            const isSelected = currentDomain?.id === membership.domain.id;
+          {joinedDomains.map((domain) => {
+            const isSelected = currentDomain?.id === domain.id;
+            const userRole = getUserRole(domain.id);
             
             return (
               <button
-                key={membership.domain.id}
+                key={domain.id}
                 onClick={() => {
-                  setCurrentDomain(membership.domain);
+                  setCurrentDomain(domain);
                   setIsOpen(false);
                   onSelect?.();
                 }}
@@ -85,10 +86,10 @@ export function DomainSelector({ onSelect }: DomainSelectorProps = {}) {
               >
                 <div className="flex-1 min-w-0">
                   <div className="font-medium text-sm text-gray-900 truncate">
-                    {membership.domain.name}
+                    {domain.name}
                   </div>
                   <div className="text-xs text-gray-600">
-                    {membership.role.name}
+                    {userRole || 'Member'}
                   </div>
                 </div>
                 {isSelected && (

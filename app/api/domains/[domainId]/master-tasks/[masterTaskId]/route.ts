@@ -10,7 +10,7 @@ export async function GET(
 ) {
   try {
     // Verify domain access
-    const accessCheck = await verifyDomainAccess(request, params.domainId);
+    const accessCheck = await verifyDomainAccess(params.domainId);
     if (!accessCheck.isValid) {
       return createUnauthorizedResponse(accessCheck.error!, accessCheck.statusCode!);
     }

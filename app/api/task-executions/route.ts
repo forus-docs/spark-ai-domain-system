@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyAccessToken } from '@/app/lib/auth/jwt';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/app/lib/auth-options';
 import { TaskExecutionService, ExecutionMessageService } from '@/app/services/task-executions';
 import { connectToDatabase } from '@/app/lib/database';
 import mongoose from 'mongoose';
@@ -10,27 +11,14 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: NextRequest) {
   await connectToDatabase();
 
-  // Check for authentication token
-  const authHeader = request.headers.get('authorization');
-  let userId = 'anonymous'; // Default fallback
+  // Get session from NextAuth
+  const session = await getServerSession(authOptions);
   
-  if (authHeader && authHeader.startsWith('Bearer ')) {
-    try {
-      const token = authHeader.substring(7);
-      const decoded = verifyAccessToken(token);
-      userId = decoded.id; // JWT payload has 'id' field
-    } catch (error) {
-      console.error('Invalid auth token:', error);
-      // In development, allow fallback to anonymous
-      // In production, this would be a hard failure
-      if (process.env.NODE_ENV !== 'development') {
-        return new Response('Invalid token', { status: 401 });
-      }
-    }
-  } else if (process.env.NODE_ENV !== 'development') {
-    // Require auth in production
-    return new Response('Unauthorized', { status: 401 });
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
+  
+  const userId = session.user.id;
 
   // Get query parameters
   const { searchParams } = new URL(request.url);
@@ -64,23 +52,14 @@ export async function GET(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   await connectToDatabase();
 
-  const isDevelopment = process.env.NODE_ENV === 'development';
-  let userId = 'anonymous';
-
-  if (!isDevelopment) {
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return new Response('Unauthorized', { status: 401 });
-    }
-
-    try {
-      const token = authHeader.substring(7);
-      const decoded = verifyAccessToken(token);
-      userId = decoded.id; // JWT payload has 'id' field
-    } catch (error) {
-      return new Response('Invalid token', { status: 401 });
-    }
+  // Get session from NextAuth
+  const session = await getServerSession(authOptions);
+  
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
+  
+  const userId = session.user.id;
 
   const { executionId } = await request.json();
 

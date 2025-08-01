@@ -42,9 +42,9 @@ export function DebugPopup({ isOpen, onClose }: DebugPopupProps) {
       currentDomainName: currentDomain?.name,
       joinedDomainsCount: joinedDomains.length,
       joinedDomains: joinedDomains.map(d => ({
-        id: d.domain.id,
-        name: d.domain.name,
-        role: d.role.name,
+        id: d.id,
+        name: d.name,
+        slug: d.slug,
       })),
     },
     storage: {
@@ -140,7 +140,7 @@ export function DebugPopup({ isOpen, onClose }: DebugPopupProps) {
                 <div>Joined Domains: <span className="text-blue-600">{joinedDomains.length}</span></div>
                 {joinedDomains.map((d, i) => (
                   <div key={i} className="ml-4">
-                    - {d.domain.name} (Role: {d.role.name})
+                    - {d.name} ({d.slug})
                   </div>
                 ))}
               </div>

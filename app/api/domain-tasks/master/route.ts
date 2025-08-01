@@ -1,11 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyAccessToken } from '@/app/lib/auth/jwt';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/app/lib/auth-options';
 import { connectToDatabase } from '@/app/lib/database';
 import DomainTask from '@/app/models/DomainTask';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
+  // Get session from NextAuth
+  const session = await getServerSession(authOptions);
+  
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
     await connectToDatabase();
     
@@ -19,7 +27,7 @@ export async function GET(request: NextRequest) {
     const token = authHeader.split(' ')[1];
     
     try {
-      verifyAccessToken(token);
+      session.user;
     } catch (error) {
       console.error('Token verification failed:', error);
       return NextResponse.json({ error: 'Invalid token' }, { status: 401 });

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyAccessToken } from '@/app/lib/auth/jwt';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/app/lib/auth-options';
 import { connectToDatabase } from '@/app/lib/database';
 import DomainTask from '@/app/models/DomainTask';
 import User from '@/app/models/User';
@@ -10,21 +11,17 @@ export async function POST(request: NextRequest) {
     console.log('Test workstream create - Request body:', body);
 
     // Verify authentication
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
+    // Get session from NextAuth
+    const session = await getServerSession(authOptions);
+    
+    if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const token = authHeader.substring(7);
-    const payload = verifyAccessToken(token);
-    if (!payload) {
-      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
     }
 
     await connectToDatabase();
 
     // Get user
-    const user = await User.findById(payload.id);
+    const user = await User.findById(session.user.id);
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }

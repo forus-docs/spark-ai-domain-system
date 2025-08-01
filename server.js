@@ -15,7 +15,7 @@ const app = next({ dev, hostname, port });
 const handle = app.getRequestHandler();
 
 // Connect to MongoDB
-mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/spark-ai')
+mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/netbuild')
   .then(() => console.log('MongoDB connected for Socket.io server'))
   .catch(err => console.error('MongoDB connection error:', err));
 

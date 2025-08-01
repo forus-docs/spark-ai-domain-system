@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyAccessToken } from '@/app/lib/auth/jwt';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/app/lib/auth-options';
 import { connectToDatabase } from '@/app/lib/database';
 import DomainTask from '@/app/models/DomainTask';
 import TaskExecution from '@/app/models/TaskExecution';
@@ -20,32 +21,16 @@ export async function POST(request: NextRequest) {
     debugInfo.step = 'connected';
     
     // Get token from Authorization header
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json({ 
-        error: 'Unauthorized',
-        debug: debugInfo 
-      }, { status: 401 });
-    }
-
-    const token = authHeader.split(' ')[1];
-    let userId: string;
+    // Get session from NextAuth
+    const session = await getServerSession(authOptions);
     
-    try {
-      const decoded = verifyAccessToken(token);
-      userId = decoded.id;
-      debugInfo.data.userId = userId;
-      debugInfo.step = 'token_verified';
-    } catch (error) {
-      debugInfo.errors.push({
-        step: 'token_verification',
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
-      return NextResponse.json({ 
-        error: 'Invalid token',
-        debug: debugInfo 
-      }, { status: 401 });
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+    
+    const userId = session.user.id;
+    debugInfo.data.userId = userId;
+    debugInfo.step = 'token_verified';
 
     // Get domain task ID from request body
     const body = await request.json();

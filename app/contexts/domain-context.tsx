@@ -13,7 +13,7 @@ interface DomainMembership {
 interface DomainContextType {
   currentDomain: Domain | null;
   currentDomainId: string | null;
-  joinedDomains: DomainMembership[];
+  joinedDomains: Domain[];
   domains: Domain[];
   setCurrentDomain: (domain: Domain) => void;
   joinDomain: (domain: Domain, role: Role) => void;
@@ -120,16 +120,9 @@ export function DomainProvider({ children }: { children: ReactNode }) {
     ? domains.find(d => d.id === currentDomainId) || null
     : null;
 
-  const joinedDomains: DomainMembership[] = membershipData.map(membership => {
-    const domain = domains.find(d => d.id === membership.domainId);
-    const role = domain?.roles.find(r => r.id === membership.roleId);
-    
-    return {
-      domain: domain!,
-      role: role!,
-      membership
-    };
-  }).filter(item => item.domain && item.role);
+  const joinedDomains: Domain[] = membershipData
+    .map(membership => domains.find(d => d.id === membership.domainId))
+    .filter((domain): domain is Domain => !!domain);
 
   const setCurrentDomain = (domain: Domain) => {
     // Only update if it's actually different

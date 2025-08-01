@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyAccessToken } from '@/app/lib/auth/jwt';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/app/lib/auth-options';
 import User from '@/app/models/User';
 import { connectToDatabase } from '@/app/lib/database';
 import { Types } from 'mongoose';
@@ -14,22 +15,18 @@ interface RouteParams {
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     // Verify authentication
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
+    // Get session from NextAuth
+    const session = await getServerSession(authOptions);
+    
+    if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const token = authHeader.substring(7);
-    const payload = verifyAccessToken(token);
-    if (!payload) {
-      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
     }
 
     const { domainId } = params;
     await connectToDatabase();
 
     // Verify user is member of domain
-    const requestingUser = await User.findById(payload.id);
+    const requestingUser = await User.findById(session.user.id);
     if (!requestingUser) {
       return NextResponse.json({ error: 'User not found' }, { status: 401 });
     }

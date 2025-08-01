@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
-import { verifyAccessToken } from '@/app/lib/auth/jwt';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/app/lib/auth-options';
 import { streamGeminiResponse, ChatMessage } from '@/app/lib/ai/gemini-client';
 import { TaskExecutionService, ExecutionMessageService } from '@/app/services/task-executions';
 import { connectToDatabase } from '@/app/lib/database';
@@ -11,22 +12,14 @@ export async function POST(request: NextRequest) {
   // Connect to MongoDB
   await connectToDatabase();
 
-  // Check for authentication token
-  const authHeader = request.headers.get('authorization');
+  // Check for authentication via NextAuth
+  const session = await getServerSession(authOptions);
   
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+  if (!session?.user?.id) {
     return new Response('Unauthorized', { status: 401 });
   }
   
-  let userId: string;
-  try {
-    const token = authHeader.substring(7);
-    const decoded = verifyAccessToken(token);
-    userId = decoded.id; // JWT payload has 'id' field
-  } catch (error) {
-    console.error('Invalid auth token:', error);
-    return new Response('Invalid token', { status: 401 });
-  }
+  const userId = session.user.id;
 
   const { messages, processContext, systemPrompt, executionId, processName, executionModel } = await request.json();
 
