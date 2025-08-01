@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpm-platform xmlns="http://www.camunda.org/schema/1.0/BpmPlatform"
+              xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+              xsi:schemaLocation="http://www.camunda.org/schema/1.0/BpmPlatform http://www.camunda.org/schema/1.0/BpmPlatform">
+
+  <job-executor>
+    <job-acquisition name="default" />
+  </job-executor>
+
+  <process-engine name="default">
+    <job-acquisition>default</job-acquisition>
+    <configuration>org.camunda.bpm.engine.impl.cfg.StandaloneProcessEngineConfiguration</configuration>
+    <datasource>java:jdbc/ProcessEngine</datasource>
+
+    <properties>
+      <property name="databaseSchemaUpdate">true</property>
+      <property name="jobExecutorActivate">true</property>
+      <property name="authorizationEnabled">true</property>
+      <property name="authorizationCheckRevokes">true</property>
+      <property name="history">full</property>
+    </properties>
+
+    <plugins>
+      <!-- Keycloak Identity Provider Plugin -->
+      <plugin>
+        <class>org.camunda.bpm.extension.keycloak.plugin.KeycloakIdentityProviderPlugin</class>
+        <properties>
+          <!-- Keycloak configuration -->
+          <property name="keycloakIssuerUrl">${KEYCLOAK_URL}/realms/${KEYCLOAK_REALM}</property>
+          <property name="keycloakAdminUrl">${KEYCLOAK_URL}/admin/realms/${KEYCLOAK_REALM}</property>
+          <property name="clientId">${KEYCLOAK_CLIENT_ID}</property>
+          <property name="clientSecret">${KEYCLOAK_CLIENT_SECRET}</property>
+          <property name="useUsernameAsCamundaUserId">true</property>
+          <property name="useGroupPathAsCamundaGroupId">false</property>
+          <property name="administratorGroupName">camunda-admin</property>
+          <property name="disableSSLCertificateValidation">true</property>
+        </properties>
+      </plugin>
+    </plugins>
+
+  </process-engine>
+
+</bpm-platform>

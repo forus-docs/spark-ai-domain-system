@@ -624,14 +624,38 @@ When working with tasks, ensure:
 - **@chatscope/chat-ui-kit-react**: Chat UI components
 - **AI Providers**: Requires GEMINI_API_KEY or OPENAI_API_KEY in environment
 
+## Project Vision & Technology Stack
+
+NetBuild is building a **trusted process economy** where every business process becomes identity-verified and payment-enabled. We achieve this by networking proven technologies in revolutionary ways.
+
+### Core Philosophy: Innovation Through Integration
+- **Not reinventing wheels**: Building on 10+ year proven technologies
+- **Enterprise-ready**: Each component already battle-tested by Fortune 500s
+- **Low risk, high innovation**: Novel connections create emergent value
+
+### Key Reports
+- [Identity-Verified Process Economy](./documentation/reports/IDENTITY_VERIFIED_PROCESS_ECONOMY.md) - Vision for Africa and emerging markets
+- [Investability Through Process Excellence](./documentation/reports/INVESTABILITY_THROUGH_PROCESS_EXCELLENCE.md) - Bridging Global North capital with Global South opportunities
+- [Technology Stack Rationale](./documentation/architecture/TECHNOLOGY_STACK_RATIONALE.md) - Why we chose each proven technology
+
 ## Key Documentation
 
 For detailed documentation, see the `/documentation` folder:
-- [Architecture Overview](./documentation/architecture/PROJECT_STRUCTURE_ANALYSIS.md)
-- [Codebase Index](./documentation/architecture/CODEBASE_INDEX.md)
-- [Navigation & Routing](./documentation/architecture/NAVIGATION_AND_ROUTING.md)
-- [Technical Debt Register](./documentation/reports/TECHNICAL_DEBT_REGISTER.md)
-- [Camunda Integration Plan](./documentation/architecture/CAMUNDA_INTEGRATION_PLAN.md)
-- [Camunda Tasklist Full Implementation](./documentation/planning/CAMUNDA_TASKLIST_FULL_IMPLEMENTATION_PLAN.md)
-- [NetBuild + Camunda Stack](./documentation/architecture/NETBUILD_CAMUNDA_STACK.md)
-- [Keycloak Integration Guide](./documentation/architecture/KEYCLOAK_INTEGRATION_GUIDE.md)
+
+### Architecture & Technology
+- [Technology Stack Rationale](./documentation/architecture/TECHNOLOGY_STACK_RATIONALE.md) - Why we build on proven foundations
+- [Architecture Overview](./documentation/architecture/PROJECT_STRUCTURE_ANALYSIS.md) - Complete system architecture
+- [NetBuild + Camunda Stack](./documentation/architecture/NETBUILD_CAMUNDA_STACK.md) - Integrated BPM architecture
+- [Codebase Index](./documentation/architecture/CODEBASE_INDEX.md) - File structure reference
+
+### Integration Guides
+- [Keycloak Integration Guide](./documentation/architecture/KEYCLOAK_INTEGRATION_GUIDE.md) - OAuth2/SSO implementation
+- [Camunda Integration Plan](./documentation/architecture/CAMUNDA_INTEGRATION_PLAN.md) - BPM engine integration
+- [Navigation & Routing](./documentation/architecture/NAVIGATION_AND_ROUTING.md) - App routing patterns
+
+### Planning & Implementation
+- [Camunda Tasklist Full Implementation](./documentation/planning/CAMUNDA_TASKLIST_FULL_IMPLEMENTATION_PLAN.md) - 10-week implementation plan
+- [Technical Debt Register](./documentation/reports/TECHNICAL_DEBT_REGISTER.md) - Known issues and remediation
+
+### Complete Documentation Index
+See [Documentation README](./documentation/README.md) for the full documentation index with 40+ guides, reports, and architecture documents.

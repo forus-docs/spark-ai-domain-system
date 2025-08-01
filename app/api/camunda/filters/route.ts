@@ -1,18 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getCamundaAuthHeader } from '@/app/lib/camunda-auth';
 
 const CAMUNDA_BASE_URL = 'http://localhost:8080/engine-rest';
 
 export async function GET(request: NextRequest) {
   try {
-    // Get auth from header - supports both Basic and Bearer
-    const authHeader = request.headers.get('Authorization');
-    const camundaAuth = request.headers.get('X-Camunda-Auth');
-    
-    // Prefer Authorization header (Bearer token) over X-Camunda-Auth (Basic)
-    let finalAuthHeader = authHeader;
-    if (!finalAuthHeader && camundaAuth) {
-      finalAuthHeader = `Basic ${camundaAuth}`;
-    }
+    // Get appropriate auth header for Camunda
+    const finalAuthHeader = await getCamundaAuthHeader(request);
 
     console.log('Filters API: Auth type:', finalAuthHeader?.startsWith('Bearer') ? 'OAuth' : 'Basic');
 
@@ -55,8 +49,27 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(taskFilters);
   } catch (error) {
     console.error('Error in filters API:', error);
+    
+    // More detailed error response for debugging
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errorStack = error instanceof Error ? error.stack : '';
+    
+    console.error('Error details:', {
+      message: errorMessage,
+      stack: errorStack,
+      type: error?.constructor?.name
+    });
+    
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { 
+        error: 'Internal server error',
+        message: errorMessage,
+        // Include details in development only
+        ...(process.env.NODE_ENV === 'development' && { 
+          details: errorMessage,
+          type: error?.constructor?.name 
+        })
+      },
       { status: 500 }
     );
   }

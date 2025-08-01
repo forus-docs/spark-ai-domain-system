@@ -2,40 +2,56 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "App Spark: debug full stack",
+      "name": "NetBuild: Full Stack Debug",
       "type": "node",
       "request": "launch",
       "runtimeExecutable": "node",
       "runtimeArgs": ["server-dev.js"],
       "cwd": "${workspaceFolder}",
       "serverReadyAction": {
-        "pattern": "Ready on",
+        "pattern": "Ready on http://localhost:3001",
         "uriFormat": "http://localhost:3001",
         "action": "debugWithChrome"
       },
-      "skipFiles": ["<node_internals>/**"],
+      "skipFiles": ["<node_internals>/**", "**/node_modules/**"],
+      "env": {
+        "NODE_ENV": "development",
+        "NODE_OPTIONS": "--inspect"
+      },
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "openOnSessionStart",
+      "outFiles": ["${workspaceFolder}/.next/**/*.js"]
+    },
+    {
+      "name": "NetBuild: Server Only",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["server-dev.js"],
+      "cwd": "${workspaceFolder}",
+      "skipFiles": ["<node_internals>/**", "**/node_modules/**"],
       "env": {
         "NODE_ENV": "development"
       },
       "console": "integratedTerminal"
     },
     {
-      "name": "App Spark: npm dev",
-      "type": "node",
+      "name": "NetBuild: Chrome Client",
+      "type": "chrome",
       "request": "launch",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev"],
-      "cwd": "${workspaceFolder}",
-      "serverReadyAction": {
-        "pattern": "Ready on",
-        "uriFormat": "http://localhost:3001",
-        "action": "openExternally"
-      },
-      "skipFiles": ["<node_internals>/**"],
-      "env": {
-        "NODE_ENV": "development"
-      },
-      "console": "integratedTerminal"
+      "url": "http://localhost:3001",
+      "webRoot": "${workspaceFolder}",
+      "sourceMaps": true,
+      "sourceMapPathOverrides": {
+        "webpack://_N_E/*": "${workspaceFolder}/*"
+      }
+    }
+  ],
+  "compounds": [
+    {
+      "name": "NetBuild: Full Stack (Server + Chrome)",
+      "configurations": ["NetBuild: Server Only", "NetBuild: Chrome Client"],
+      "stopAll": true
     }
   ]
 }
